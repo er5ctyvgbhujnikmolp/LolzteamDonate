@@ -4,23 +4,20 @@ Settings dialog for configuring the application.
 
 import asyncio
 import threading
-import webbrowser
-from typing import Dict, Any, Optional, Callable
 
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject
+from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QGroupBox, QFormLayout, QSpinBox,
-    QCheckBox, QTabWidget, QWidget, QDialogButtonBox,
-    QComboBox, QMessageBox, QFrame, QListWidget, QListWidgetItem
+    QCheckBox, QTabWidget, QWidget, QComboBox, QMessageBox, QListWidget
 )
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject
-from PyQt5.QtGui import QIntValidator
 
 from core.donation_alerts import DonationAlertsAPI
 from core.lolzteam import LolzteamAPI
 from core.stats_manager import StatsManager
-from gui.resources.styles import get_settings_style
 from gui.notification import NotificationManager
+from gui.resources.styles import get_settings_style
 from gui.title_bar import TitleBar
 
 
@@ -227,6 +224,35 @@ class SettingsDialog(QDialog):
         app_group = QGroupBox("Application Settings")
         app_form = QFormLayout()
 
+        # Настройки уведомлений
+        notification_group = QGroupBox("Настройки уведомлений")
+        notification_form = QFormLayout()
+
+        # Флажок для включения/выключения звука
+        self.notification_sound = QCheckBox("Звуковые оповещения")
+        notification_form.addRow(self.notification_sound)
+
+        # Слайдер для времени отображения уведомлений
+        self.notification_timeout = QSpinBox()
+        self.notification_timeout.setRange(0, 30)  # от 0 до 30 секунд
+        self.notification_timeout.setSingleStep(1)
+        self.notification_timeout.setSuffix(" сек")
+        self.notification_timeout.setSpecialValueText("Не закрывать")  # 0 = не закрывать автоматически
+        notification_form.addRow("Время отображения:", self.notification_timeout)
+
+        # Слайдер для максимального количества уведомлений
+        self.max_notifications = QSpinBox()
+        self.max_notifications.setRange(1, 10)  # от 1 до 10 уведомлений
+        self.max_notifications.setSingleStep(1)
+        self.max_notifications.setPrefix("Максимум ")
+        self.max_notifications.setSuffix(" шт.")
+        notification_form.addRow("Количество уведомлений:", self.max_notifications)
+
+        notification_group.setLayout(notification_form)
+
+        # Добавляем группу настроек уведомлений в layout
+        app_layout.addWidget(notification_group)
+
         self.start_minimized = QCheckBox("Start minimized")
         self.start_with_system = QCheckBox("Start with system")
 
@@ -426,6 +452,20 @@ class SettingsDialog(QDialog):
         if theme_index >= 0:
             self.theme_selector.setCurrentIndex(theme_index)
 
+        self.notification_sound.setChecked(
+            self.settings.get("app", "notification_sound_enabled") if
+            self.settings.get("app", "notification_sound_enabled") is not None else True
+        )
+
+        timeout_seconds = self.settings.get("app", "notification_timeout") if \
+            self.settings.get("app", "notification_timeout") is not None else 5000
+        # Конвертируем миллисекунды в секунды
+        self.notification_timeout.setValue(int(timeout_seconds / 1000))
+
+        max_visible = self.settings.get("app", "max_visible_notifications") if \
+            self.settings.get("app", "max_visible_notifications") is not None else 3
+        self.max_notifications.setValue(max_visible)
+
         # Banwords
         banwords = self.settings.get_banwords()
         for word in banwords:
@@ -510,6 +550,23 @@ class SettingsDialog(QDialog):
             banwords.append(item.text())
 
         self.settings.set("app", "banwords", banwords)
+
+        # Сохранение настроек уведомлений
+        self.settings.set(
+            "app",
+            "notification_sound_enabled",
+            self.notification_sound.isChecked()
+        )
+
+        # Конвертируем секунды в миллисекунды
+        timeout_ms = self.notification_timeout.value() * 1000
+        self.settings.set("app", "notification_timeout", timeout_ms)
+
+        self.settings.set(
+            "app",
+            "max_visible_notifications",
+            self.max_notifications.value()
+        )
 
         self.settings_saved.emit()
         self.accept()
