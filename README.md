@@ -4,121 +4,129 @@
   <img src="https://via.placeholder.com/200x200.png?text=LOLZTEAM+DONATE" alt="LOLZTEAM DONATE Logo"/>
 </p>
 
-A Python application that integrates LOLZTEAM with DonationAlerts, allowing you to automatically forward donations from
-LOLZTEAM to DonationAlerts for showing alerts during your streams.
+Приложение на Python, которое интегрирует LOLZTEAM с DonationAlerts, позволяя автоматически пересылать донаты с LOLZTEAM
+в DonationAlerts для отображения алертов во время стримов.
 
-## Features
+## Возможности
 
-- **Dual Mode Operation**: Run as a GUI application or in console mode
-- **Payment Monitoring**: Automatically monitor LOLZTEAM for new payments
-- **DonationAlerts Integration**: Forward payments to DonationAlerts as custom alerts
-- **Real-time Notifications**: Get notified when new payments are received
-- **Payment History**: View recent payments directly in the application
-- **Customizable Settings**: Configure API credentials, minimum payment amount, check interval, and more
-- **System Tray Support**: Runs in the background with system tray notifications
+- **Два режима работы**: Запуск в режиме графического интерфейса или в консольном режиме
+- **Мониторинг платежей**: Автоматическое отслеживание новых платежей на LOLZTEAM
+- **Интеграция с DonationAlerts**: Пересылка платежей в DonationAlerts в виде пользовательских алертов
+- **Уведомления в реальном времени**: Получение уведомлений о новых платежах
+- **История платежей**: Просмотр недавних платежей непосредственно в приложении
+- **Настраиваемые параметры**: Настройка учетных данных API, минимальной суммы платежа, интервала проверки и многого
+  другого
+- **Поддержка системного трея**: Возможность сворачивания в системный трей и работы в фоновом режиме
+- **Фильтрация нежелательных слов**: Настройка списка слов, которые будут заменяться звездочками в сообщениях донатов
 
-## Installation
+## Установка
 
-### Prerequisites
+### Требования
 
-- Python 3.8 or higher
-- PyQt5 (for GUI mode)
-- Required Python packages (see `requirements.txt`)
+- Python 3.8 или выше
+- PyQt5 (для режима GUI)
+- Необходимые пакеты Python (см. `requirements.txt`)
 
-### Setup
+### Настройка
 
-1. Clone the repository:
+1. Клонируйте репозиторий:
    ```bash
-   git clone https://github.com/yourusername/lolzteam-donate.git
+   git clone https://github.com/er5ctyvgbhujnikmolp/LolzteamDonate.git
    cd lolzteam-donate
    ```
 
-2. Install dependencies:
+2. Установите зависимости:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. Run the application:
+3. Запустите приложение:
    ```bash
-   # GUI mode
+   # Режим GUI
    python main.py
    
-   # Console mode
+   # Консольный режим
    python main.py --console
    ```
 
-## Configuration
+## Настройка
 
-The application requires authentication with both DonationAlerts and LOLZTEAM:
+Приложение требует аутентификации как в DonationAlerts, так и в LOLZTEAM:
 
-### DonationAlerts Setup
+### Настройка DonationAlerts
 
-1. Create a new application at [DonationAlerts](https://www.donationalerts.com/application/clients)
-2. Set the redirect URI to `http://127.0.0.1:5228/login`
-3. Note your Client ID and Client Secret
-4. Enter these credentials in the application settings
+1. Создайте новое приложение на [DonationAlerts](https://www.donationalerts.com/application/clients)
+2. Установите URI перенаправления на `http://127.0.0.1:5228/login`
+3. Запомните ваш Client ID и Client Secret
+4. Введите эти учетные данные в настройках приложения
 
-### LOLZTEAM Setup
+### Настройка LOLZTEAM
 
-1. Create a new application at [LOLZTEAM](https://lolz.live/account/api)
-2. Set the redirect URI to your application's callback URL
-3. Note your Client ID
-4. Enter this information in the application settings
+1. Создайте новое приложение на [LOLZTEAM](https://lolz.live/account/api)
+2. Установите URI перенаправления на URL обратного вызова вашего приложения
+3. Запомните ваш Client ID
+4. Введите эту информацию в настройках приложения
 
-## Usage
+## Использование
 
-### GUI Mode
+### Режим GUI
 
-1. Launch the application: `python main.py`
-2. Click "Authenticate with DonationAlerts" and "Authenticate with LOLZTEAM" to connect your accounts
-3. Once authenticated, the application will automatically start monitoring for new payments
-4. View recent payments in the "Recent Payments" section
-5. Configure settings by clicking the "Settings" button
+1. Запустите приложение: `python main.py`
+2. Нажмите "Authenticate with DonationAlerts" и "Authenticate with LOLZTEAM", чтобы подключить ваши аккаунты
+3. После аутентификации приложение автоматически начнет мониторинг новых платежей
+4. Просмотр недавних платежей в разделе "Recent Payments"
+5. Настройте приложение, нажав кнопку "Settings"
 
-### Console Mode
+### Консольный режим
 
-1. Launch the application in console mode: `python main.py --console`
-2. Follow the on-screen prompts to authenticate and configure the application
-3. Select "Start monitoring payments" to begin monitoring
+1. Запустите приложение в консольном режиме: `python main.py --console`
+2. Следуйте инструкциям на экране для аутентификации и настройки приложения
+3. Выберите "Start monitoring payments", чтобы начать мониторинг
 
-## Advanced Settings
+## Расширенные настройки
 
-### Minimum Payment Amount
+### Минимальная сумма платежа
 
-Set the minimum payment amount to monitor. Payments below this amount will be ignored.
+Установите минимальную сумму платежа для мониторинга. Платежи ниже этой суммы будут игнорироваться.
 
-### Check Interval
+### Интервал проверки
 
-Configure how frequently the application checks for new payments (in seconds).
+Настройте, как часто приложение проверяет наличие новых платежей (в секундах).
 
-### Application Settings
+### Настройки приложения
 
-- **Start Minimized**: Start the application minimized to the system tray
-- **Start with System**: Launch the application automatically when your system starts
+- **Запуск свернутым**: Запуск приложения свернутым в системный трей
+- **Запуск с системой**: Автоматический запуск приложения при старте системы
+- **Тема оформления**: Выбор между светлой и темной темой интерфейса
 
-## Troubleshooting
+### Фильтр нежелательных слов
 
-### Authentication Issues
+Настройте список слов, которые будут автоматически заменяться звездочками в сообщениях донатов.
+Эта функция полезна для фильтрации нецензурных выражений и других нежелательных слов.
 
-- Ensure your Client ID and Client Secret are correct
-- Check that your redirect URIs match exactly
-- Try re-authenticating if your tokens have expired
+## Устранение неполадок
 
-### Payment Monitoring Issues
+### Проблемы с аутентификацией
 
-- Verify that both DonationAlerts and LOLZTEAM are properly authenticated
-- Check your internet connection
-- Ensure the LOLZTEAM API is accessible
+- Убедитесь, что ваши Client ID верны
+- Проверьте, что URI перенаправления точно совпадают
+- Попробуйте повторно аутентифицироваться, если ваши токены истекли
 
-## Contributing
+### Проблемы с мониторингом платежей
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+- Убедитесь, что и DonationAlerts, и LOLZTEAM правильно аутентифицированы
+- Проверьте подключение к интернету
+- Убедитесь, что API LOLZTEAM доступен
 
-## License
+## Вклад в проект
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Вклады приветствуются! Пожалуйста, не стесняйтесь отправлять Pull Request.
 
-## Acknowledgements
+## Лицензия
+
+Этот проект лицензирован под лицензией MIT - см. файл LICENSE для подробностей.
+
+## Благодарности
 
 - [DonationAlerts API](https://www.donationalerts.com/apidoc)
 - [LOLZTEAM API](https://lolz.live/account/api)
