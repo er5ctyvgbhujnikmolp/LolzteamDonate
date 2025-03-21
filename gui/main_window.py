@@ -1069,3 +1069,71 @@ class MainWindow(QMainWindow):
             QSystemTrayIcon.Information,
             2000
         )
+
+    # 1. Инициализация менеджера уведомлений с обновленными настройками
+    def initialize_notification_manager(self):
+        """Инициализация менеджера уведомлений с настройками из конфигурации."""
+        self.notification_manager = NotificationManager(self)
+
+        # Загружаем стиль
+        self.notification_manager.set_stylesheet(get_notification_style(self.current_theme))
+
+        # Устанавливаем настройки звука
+        sound_enabled = self.settings.get("app", "notification_sound_enabled")
+        if sound_enabled is not None:
+            self.notification_manager.set_sound_enabled(sound_enabled)
+
+        # Устанавливаем таймаут уведомлений
+        timeout = self.settings.get("app", "notification_timeout")
+        if timeout is not None:
+            self.notification_manager.set_auto_close_timeout(timeout)
+
+        # Устанавливаем максимальное количество видимых уведомлений
+        max_visible = self.settings.get("app", "max_visible_notifications")
+        if max_visible is not None:
+            self.notification_manager.max_visible_notifications = max_visible
+
+    # 2. Обработка изменения настроек уведомлений
+    def _on_settings_saved(self):
+        """Обработка события сохранения настроек."""
+        # Существующий код...
+
+        # Обновляем настройки менеджера уведомлений
+        sound_enabled = self.settings.get("app", "notification_sound_enabled")
+        if sound_enabled is not None:
+            self.notification_manager.set_sound_enabled(sound_enabled)
+
+        timeout = self.settings.get("app", "notification_timeout")
+        if timeout is not None:
+            self.notification_manager.set_auto_close_timeout(timeout)
+
+        max_visible = self.settings.get("app", "max_visible_notifications")
+        if max_visible is not None:
+            self.notification_manager.max_visible_notifications = max_visible
+
+    # 3. Примеры использования разных типов уведомлений
+    def show_notification_examples(self):
+        """Показать примеры разных типов уведомлений."""
+        # Информационное уведомление
+        self.notification_manager.show_info(
+            "Это информационное сообщение",
+            "Информация"
+        )
+
+        # Уведомление об успехе
+        self.notification_manager.show_success(
+            "Операция успешно выполнена",
+            "Успех"
+        )
+
+        # Предупреждающее уведомление
+        self.notification_manager.show_warning(
+            "Внимание! Эта операция может занять некоторое время",
+            "Предупреждение"
+        )
+
+        # Уведомление об ошибке
+        self.notification_manager.show_error(
+            "Произошла ошибка при выполнении операции",
+            "Ошибка"
+        )
