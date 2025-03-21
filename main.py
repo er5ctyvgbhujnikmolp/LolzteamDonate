@@ -6,7 +6,9 @@ This script handles both GUI and console modes.
 
 import argparse
 import os
+import shutil
 import sys
+from pathlib import Path
 
 # Create necessary package structure
 package_dirs = [
@@ -70,6 +72,49 @@ def main():
             sys.exit(loop.run_forever())
 
 
+def initialize_sounds():
+    """Инициализация директории звуков и создание базовых звуковых файлов."""
+    sounds_dir = Path("sounds")
+    sounds_dir.mkdir(exist_ok=True)
+
+    # Проверка наличия звуковых файлов
+    required_sounds = {
+        "info.wav": "Информационное уведомление",
+        "success.wav": "Успешное уведомление",
+        "warning.wav": "Предупреждающее уведомление",
+        "error.wav": "Уведомление об ошибке"
+    }
+
+    # Создание простых звуковых файлов, если их нет
+    # В реальном приложении нужно добавить настоящие звуковые файлы
+    # Этот код нужен только для примера
+    for sound_file, description in required_sounds.items():
+        sound_path = sounds_dir / sound_file
+        if not sound_path.exists():
+            try:
+                # Для примера копируем один из стандартных системных звуков
+                if os.name == "nt":  # Windows
+                    system_sounds = {
+                        "info.wav": "%SystemRoot%\\Media\\Windows Notify.wav",
+                        "success.wav": "%SystemRoot%\\Media\\Windows Notify System Generic.wav",
+                        "warning.wav": "%SystemRoot%\\Media\\Windows Exclamation.wav",
+                        "error.wav": "%SystemRoot%\\Media\\Windows Critical Stop.wav"
+                    }
+                    system_sound = os.path.expandvars(system_sounds.get(sound_file, system_sounds["info.wav"]))
+                    if os.path.exists(system_sound):
+                        shutil.copy(system_sound, sound_path)
+                    else:
+                        print(f"Системный звук не найден: {system_sound}")
+                else:  # Linux/Mac
+                    # Создаем пустой звуковой файл
+                    with open(sound_path, "wb") as f:
+                        f.write(
+                            b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x44\xAC\x00\x00\x88\x58\x01\x00\x02\x00\x10\x00data\x00\x00\x00\x00")
+                    print(f"Создан пустой звуковой файл: {sound_path}")
+            except Exception as e:
+                print(f"Ошибка при создании звукового файла {sound_file}: {e}")
+
+
 if __name__ == "__main__":
     # Check for PyQt5
     try:
@@ -88,4 +133,5 @@ if __name__ == "__main__":
         print("Please install it using: pip install asyncio")
         sys.exit(1)
 
+    initialize_sounds()
     main()
