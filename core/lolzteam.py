@@ -7,6 +7,7 @@ import json
 import time
 from typing import Dict, Any, List
 
+import aiohttp
 import requests
 
 
@@ -77,11 +78,6 @@ class LolzteamAPI:
 
         try:
             response = session.get(f"{self.BASE_URL}/me")
-
-            # Print response for debugging
-            # print(f"User info response status: {response.status_code}")
-            # print(f"User info response: {response.text[:200]}...")  # Print first 200 chars to avoid massive output
-
             if response.status_code != 200:
                 raise Exception(f"Failed to get user info: {response.status_code} - {response.text}")
 
@@ -132,15 +128,10 @@ class LolzteamAPI:
         session.mount('https://', requests.adapters.HTTPAdapter(max_retries=3))
 
         try:
-            print(f"Requesting payment history with params: {params}")
             response = session.get(
                 f"{self.BASE_URL}/user/payments",
                 params=params
             )
-
-            # Print response for debugging
-            print(f"Payment history response status: {response.status_code}")
-            print(f"Payment history response: {response.text}")  # Print first 200 chars
 
             if response.status_code != 200:
                 raise Exception(f"Failed to get payment history: {response.status_code} - {response.text}")
@@ -155,9 +146,6 @@ class LolzteamAPI:
             # Extract payments from the response
             payments = []
             payments_data = data.get("payments", {})
-
-            # Debug prints
-            print(f"Number of payments in response: {len(payments_data)}")
 
             # If payments_data is a dict, convert it to a list
             if isinstance(payments_data, dict):
@@ -195,17 +183,18 @@ class LolzteamAPI:
             raise Exception(f"Invalid JSON response from server: {str(e)}")
         except Exception as e:
             print(f"Unexpected error in get_payment_history: {str(e)}")
-            raise
+            raise Exception(f"Unexpected error in get_payment_history: {str(e)}")
 
-    def verify_token(self) -> bool:
+    async def verify_token(self, access_token: str) -> bool:
         """Verify if the access token is valid.
 
         Returns:
             True if token is valid, False otherwise
         """
         try:
-            self.get_user_info()
-            return True
-        except Exception as e:
-            print(f"Token verification failed: {str(e)}")
+            headers = {"Authorization": f"Bearer {access_token}"}
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self.BASE_URL}/me", headers=headers) as response:
+                    return response.status == 200
+        except Exception:
             return False
