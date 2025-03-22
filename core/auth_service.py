@@ -15,7 +15,7 @@ class AuthSuccessful(Exception):
 
     def __init__(self, token):
         self.token = token
-        super().__init__(f"Authentication successful with token: {token[:10]}...")
+        super().__init__(f"Авторизация с помощью токена прошла успешно: {token[:10]}...")
 
 
 class AuthCallbackHandler(BaseHTTPRequestHandler):
@@ -30,7 +30,7 @@ class AuthCallbackHandler(BaseHTTPRequestHandler):
         """Handle GET request."""
         # Отправляем ответ
         self.send_response(200)
-        self.send_header("Content-type", "text/html")
+        self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
 
         # Проверяем URL на наличие токена
@@ -39,9 +39,8 @@ class AuthCallbackHandler(BaseHTTPRequestHandler):
 
         # Если токен в URL параметрах
         if not self.is_fragment and self.token_pattern:
-            match = re.search(self.token_pattern, url_path)
-            if match:
-                token = match.group(1)
+            if match := re.search(self.token_pattern, url_path):
+                token = match[1]
                 auth_server = self.server
                 auth_server.token = token
                 auth_server.stop_requested = True
@@ -52,7 +51,7 @@ class AuthCallbackHandler(BaseHTTPRequestHandler):
             html = """
             <html>
             <head>
-                <title>Authentication Successful</title>
+                <title>Успешная авторизация</title>
                 <style>
                     body { font-family: Arial, sans-serif; margin: 0; padding: 20px; text-align: center; }
                     .container { max-width: 600px; margin: 50px auto; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -64,8 +63,8 @@ class AuthCallbackHandler(BaseHTTPRequestHandler):
                 <div class="container">
                     <h1>LOLZTEAM DONATE</h1>
                     <div id="message">
-                        <h2>Processing Authentication...</h2>
-                        <p>Please wait while we process your authentication...</p>
+                        <h2>Процесс авторизации...</h2>
+                        <p>Пожалуйста, подождите, пока мы обработаем вашу авторизацию...</p>
                     </div>
                 </div>
                 
@@ -81,27 +80,27 @@ class AuthCallbackHandler(BaseHTTPRequestHandler):
                             fetch("/token?token=" + encodeURIComponent(token))
                                 .then(() => {
                                     document.getElementById("message").innerHTML = `
-                                        <h2>Authentication Successful!</h2>
-                                        <p>You can now close this window and return to the application.</p>
+                                        <h2>Успешная авторизация!</h2>
+                                        <p>Теперь вы можете закрыть это окно и вернуться к работе с приложением.</p>
                                     `;
                                 })
                                 .catch(err => {
                                     console.error("Error sending token:", err);
                                     document.getElementById("message").innerHTML = `
-                                        <h2>Authentication Error</h2>
-                                        <p>There was an error processing your authentication. Please try again.</p>
+                                        <h2>Ошибка авторизации</h2>
+                                        <p>Произошла ошибка при обработке вашей авторизации. Пожалуйста, попробуйте еще раз.</p>
                                     `;
                                 });
                         } else {
                             document.getElementById("message").innerHTML = `
-                                <h2>Authentication Error</h2>
-                                <p>No authentication token found. Please try again.</p>
+                                <h2>Ошибка авторизации</h2>
+                                <p>Не найден токен авторизации. Пожалуйста, попробуйте еще раз.</p>
                             `;
                         }
                     } else {
                         document.getElementById("message").innerHTML = `
-                            <h2>Authentication Error</h2>
-                            <p>No authentication data found. Please try again.</p>
+                            <h2>Ошибка авторизации</h2>
+                            <p>Данные для авторизации не найдены. Пожалуйста, попробуйте еще раз.</p>
                         `;
                     }
                 </script>
@@ -114,7 +113,7 @@ class AuthCallbackHandler(BaseHTTPRequestHandler):
                 html = """
                 <html>
                 <head>
-                    <title>Authentication Successful</title>
+                    <title>Успешная авторизация/title>
                     <style>
                         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; text-align: center; }
                         .container { max-width: 600px; margin: 50px auto; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -125,8 +124,8 @@ class AuthCallbackHandler(BaseHTTPRequestHandler):
                 <body>
                     <div class="container">
                         <h1>LOLZTEAM DONATE</h1>
-                        <h2>Authentication Successful!</h2>
-                        <p>You can now close this window and return to the application.</p>
+                        <h2>Успешная авторизация!</h2>
+                        <p>Теперь вы можете закрыть это окно и вернуться к работе с приложением.</p>
                     </div>
                 </body>
                 </html>
@@ -135,7 +134,7 @@ class AuthCallbackHandler(BaseHTTPRequestHandler):
                 html = """
                 <html>
                 <head>
-                    <title>Authentication Error</title>
+                    <title>Ошибка авторизации</title>
                     <style>
                         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; text-align: center; }
                         .container { max-width: 600px; margin: 50px auto; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -147,8 +146,8 @@ class AuthCallbackHandler(BaseHTTPRequestHandler):
                 <body>
                     <div class="container">
                         <h1>LOLZTEAM DONATE</h1>
-                        <h2>Authentication Error</h2>
-                        <p>No authentication token found. Please try again.</p>
+                        <h2>Ошибка авторизации</h2>
+                        <p>Не найден токен авторизации. Пожалуйста, попробуйте еще раз.</p>
                     </div>
                 </body>
                 </html>
@@ -159,7 +158,7 @@ class AuthCallbackHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         """Handle POST request."""
         self.send_response(200)
-        self.send_header("Content-type", "text/plain")
+        self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
         self.wfile.write(b"OK")
 
@@ -211,7 +210,7 @@ class AuthServer(HTTPServer):
 
                         # Отправляем ответ
                         self.send_response(200)
-                        self.send_header("Content-type", "text/plain")
+                        self.send_header("Content-type", "text/html; charset=utf-8")
                         self.end_headers()
                         self.wfile.write(b"OK")
                         return
@@ -278,7 +277,7 @@ class AuthenticationService:
         # Проверяем, не запущен ли уже сервер
         if self.server is not None:
             if on_error:
-                on_error("Authentication already in progress")
+                on_error("Авторизация уже выполняется")
             return False
 
         try:
@@ -304,7 +303,7 @@ class AuthenticationService:
             return True
         except Exception as e:
             if on_error:
-                on_error(f"Failed to start authentication: {str(e)}")
+                on_error(f"Не удалось запустить авторизацию: {str(e)}")
             return False
 
     def _run_server(self, on_success=None, on_error=None):
@@ -322,7 +321,7 @@ class AuthenticationService:
                 on_success(self.server.token)
         except Exception as e:
             if on_error:
-                on_error(f"Error during authentication: {str(e)}")
+                on_error(f"Ошибка при авторизации: {str(e)}")
         finally:
             self.server = None
             self.server_thread = None
