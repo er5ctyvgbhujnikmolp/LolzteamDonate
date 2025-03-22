@@ -9,7 +9,7 @@ from io import BytesIO
 import requests
 from PIL import Image
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QTimer, QObject
-from PyQt5.QtGui import QPixmap, QColor, QPalette
+from PyQt5.QtGui import QPixmap, QColor, QPalette, QIcon
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QFrame, QApplication, QSystemTrayIcon, QMenu, QAction,
@@ -216,7 +216,7 @@ class MainWindow(QMainWindow):
         title_label = QLabel("LOLZTEAM DONATE")
         title_label.setObjectName("titleLabel")
 
-        subtitle_label = QLabel("DonationAlerts Integration")
+        subtitle_label = QLabel("Интеграция с DonationAlerts")
         subtitle_label.setObjectName("subtitleLabel")
 
         title_layout.addWidget(title_label)
@@ -226,7 +226,7 @@ class MainWindow(QMainWindow):
         header_layout.addStretch()
 
         # Settings button
-        settings_button = QPushButton("Settings")
+        settings_button = QPushButton("Настройки")
         settings_button.clicked.connect(self._show_settings)
 
         header_layout.addWidget(settings_button)
@@ -251,7 +251,7 @@ class MainWindow(QMainWindow):
         self.da_profile_layout = QVBoxLayout(self.da_profile_content)
         self.da_profile_layout.setSpacing(2)  # Уменьшенный интервал между элементами
 
-        self.da_auth_button = QPushButton("Authenticate with DonationAlerts")
+        self.da_auth_button = QPushButton("Авторизоваться в DonationAlerts")
         self.da_auth_button.clicked.connect(self._authenticate_donation_alerts)
         self.da_profile_layout.addWidget(self.da_auth_button)
 
@@ -266,7 +266,7 @@ class MainWindow(QMainWindow):
         self.lzt_profile_layout = QVBoxLayout(self.lzt_profile_content)
         self.lzt_profile_layout.setSpacing(2)  # Уменьшенный интервал между элементами
 
-        self.lzt_auth_button = QPushButton("Authenticate with LOLZTEAM")
+        self.lzt_auth_button = QPushButton("Авторизоваться в LOLZTEAM")
         self.lzt_auth_button.clicked.connect(self._authenticate_lolzteam)
         self.lzt_profile_layout.addWidget(self.lzt_auth_button)
 
@@ -282,7 +282,7 @@ class MainWindow(QMainWindow):
         control_layout = QHBoxLayout()
 
         # Статистика
-        stats_group = QGroupBox("Donation Statistics")
+        stats_group = QGroupBox("Статистика донатов")
         stats_layout = QVBoxLayout()
         stats_layout.setAlignment(Qt.AlignCenter)  # Центрируем содержимое
 
@@ -292,7 +292,7 @@ class MainWindow(QMainWindow):
         self.total_amount_label.setAlignment(Qt.AlignCenter)
 
         # Количество донатов
-        self.donation_count_label = QLabel(f"Donation count: {self.stats_manager.get_donation_count()}")
+        self.donation_count_label = QLabel(f"Количество донатов: {self.stats_manager.get_donation_count()}")
         self.donation_count_label.setObjectName("statTitleLabel")
         self.donation_count_label.setAlignment(Qt.AlignCenter)
 
@@ -302,16 +302,16 @@ class MainWindow(QMainWindow):
         stats_group.setLayout(stats_layout)
 
         # Управление мониторингом
-        control_group = QGroupBox("Monitoring Control")
+        control_group = QGroupBox("Управление мониторингом")
         control_buttons_layout = QVBoxLayout()
 
         # Fix button sizing by using a fixed width layout
         # Кнопка переключения мониторинга (одна кнопка вместо двух)
-        self.toggle_monitoring_button = QPushButton("Start Monitoring")
+        self.toggle_monitoring_button = QPushButton("Запустить мониторинг")
         # self.toggle_monitoring_button.setObjectName("greenButton")
         self.toggle_monitoring_button.clicked.connect(self._toggle_monitoring)
 
-        self.reload_payments_button = QPushButton("Reload Payments")
+        self.reload_payments_button = QPushButton("Обновить платежи")
         self.reload_payments_button.clicked.connect(self._load_recent_payments)
 
         control_buttons_layout.addWidget(self.toggle_monitoring_button)
@@ -325,7 +325,7 @@ class MainWindow(QMainWindow):
         content_layout.addLayout(control_layout)
 
         # Create payments section
-        payments_group = QGroupBox("Recent Payments")
+        payments_group = QGroupBox("Последние платежи")
         payments_layout = QVBoxLayout()
 
         self.payment_list = PaymentList()
@@ -344,7 +344,7 @@ class MainWindow(QMainWindow):
 
         # Create status bar
         self.status_bar = self.statusBar()
-        self.status_bar.showMessage("Ready")
+        self.status_bar.showMessage("Готово")
 
         # Добавляем виджет с контентом в главный контейнер
         main_layout.addWidget(content_widget)
@@ -368,34 +368,50 @@ class MainWindow(QMainWindow):
         self.tray_icon = QSystemTrayIcon(self)
         self.tray_icon.setToolTip("LOLZTEAM DONATE")
 
+        # Загружаем иконки для разных состояний
+        self.tray_icon_active = QIcon("gui/resources/icons/tray_icon.png")
+        self.tray_icon_inactive = QIcon("gui/resources/icons/tray_icon2.png")
+
         # Create tray menu
-        tray_menu = QMenu()
+        self.tray_menu = QMenu()
 
-        show_action = QAction("Show", self)
-        show_action.triggered.connect(self.show)
+        # Создаем действия для меню трея
+        self.start_monitoring_action = QAction("Запустить мониторинг", self)
+        self.start_monitoring_action.triggered.connect(self._start_monitoring)
 
-        hide_action = QAction("Hide", self)
-        hide_action.triggered.connect(self.hide)
+        self.stop_monitoring_action = QAction("Остановить мониторинг", self)
+        self.stop_monitoring_action.triggered.connect(self._stop_monitoring)
 
-        settings_action = QAction("Settings", self)
-        settings_action.triggered.connect(self._show_settings)
-
-        quit_action = QAction("Quit", self)
+        quit_action = QAction("Закрыть приложение", self)
         quit_action.triggered.connect(self._quit)
 
-        tray_menu.addAction(show_action)
-        tray_menu.addAction(hide_action)
-        tray_menu.addSeparator()
-        tray_menu.addAction(settings_action)
-        tray_menu.addSeparator()
-        tray_menu.addAction(quit_action)
+        self.tray_menu.addAction(self.start_monitoring_action)
+        self.tray_menu.addAction(self.stop_monitoring_action)
+        self.tray_menu.addSeparator()
+        self.tray_menu.addAction(quit_action)
 
-        self.tray_icon.setContextMenu(tray_menu)
+        self._update_tray_menu()
+
+        self.tray_icon.setContextMenu(self.tray_menu)
         self.tray_icon.activated.connect(self._tray_activated)
 
         # Use a default icon for now
-        self.tray_icon.setIcon(self.style().standardIcon(QApplication.style().SP_ComputerIcon))
+        tray_icon = QIcon("gui/resources/icons/tray_icon2.png")  # Укажите путь к вашей иконке
+        self.tray_icon.setIcon(tray_icon)
         self.tray_icon.show()
+
+    def _update_tray_menu(self):
+        """Update tray menu based on monitoring state."""
+        if self.monitoring_active:
+            self.start_monitoring_action.setVisible(False)
+            self.stop_monitoring_action.setVisible(True)
+            self.tray_icon.setIcon(self.tray_icon_active)
+            self.tray_icon.setToolTip("LOLZTEAM DONATE - Мониторинг активен")
+        else:
+            self.start_monitoring_action.setVisible(True)
+            self.stop_monitoring_action.setVisible(False)
+            self.tray_icon.setIcon(self.tray_icon_inactive)
+            self.tray_icon.setToolTip("LOLZTEAM DONATE - Мониторинг неактивен")
 
     def _toggle_monitoring(self):
         """Toggle payment monitoring on/off."""
@@ -442,7 +458,7 @@ class MainWindow(QMainWindow):
 
         # Start the monitor
         self.waiting_for = "payment_monitor_start"
-        self.status_bar.showMessage("Starting payment monitoring...")
+        self.status_bar.showMessage("Запуск мониторинга платежей...")
 
         # Start monitoring in background - with improved AsyncHelper
         self.async_helper.run_async(self.payment_monitor.start)
@@ -456,7 +472,7 @@ class MainWindow(QMainWindow):
             self.async_helper.run_async(self.payment_monitor.stop)
 
             # Update UI
-            self.status_bar.showMessage("Stopping payment monitoring...")
+            self.status_bar.showMessage("Остановка мониторинга платежей...")
 
             # Disable button temporarily to prevent multiple clicks
             self.toggle_monitoring_button.setEnabled(False)
@@ -517,7 +533,7 @@ class MainWindow(QMainWindow):
             print("Payment list updated")
 
             # Обновляем статус
-            self.status_bar.showMessage("Payments loaded successfully")
+            self.status_bar.showMessage("Платежи успешно загружены")
         except Exception as e:
             print(f"Error loading payments: {str(e)}")
             self.notification_manager.show_error(
@@ -563,7 +579,7 @@ class MainWindow(QMainWindow):
                     print(f"Skipping invalid payment: {payment}")
 
             # Update status
-            self.status_bar.showMessage(f"Added {len(payments_to_process)} new payments")
+            self.status_bar.showMessage(f"Добавлено {len(payments_to_process)} новых платежей")
 
         except Exception as e:
             print(f"Error processing payment updates: {str(e)}")
@@ -590,62 +606,33 @@ class MainWindow(QMainWindow):
 
         if avatar_url:
             try:
-                # Загружаем аватарку через requests
-                response = requests.get(avatar_url)
-                response.raise_for_status()
-                data = response.content
-
-                # Обрабатываем изображение
-                img = Image.open(BytesIO(data))
-                img = img.convert("RGBA")
-
-                # Создаем круглую маску
-                mask = Image.new("L", img.size, 0)
-                from PIL import ImageDraw
-                draw = ImageDraw.Draw(mask)
-                draw.ellipse((0, 0, img.size[0], img.size[1]), fill=255)
-
-                # Применяем маску
-                img.putalpha(mask)
-
-                # Сохраняем в буфер и загружаем в QPixmap
-                buf = BytesIO()
-                img.save(buf, format="PNG")
-                buf.seek(0)
-                image_data = buf.read()
-
-                # Загружаем QPixmap из байтовых данных
-                pixmap = QPixmap()
-                pixmap.loadFromData(image_data)
-
-                # Устанавливаем QPixmap в QLabel с масштабированием
-                avatar_label.setPixmap(pixmap.scaled(
-                    64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation
-                ))
+                self._avatar_profile_download(
+                    avatar_url, avatar_label
+                )
             except Exception as e:
                 # Use placeholder
-                avatar_label.setText("Avatar")
+                avatar_label.setText("Аватар")
                 print(f"Error loading avatar: {e}")
         else:
             # Use placeholder
-            avatar_label.setText("Avatar")
+            avatar_label.setText("Аватар")
 
         # User info
         user_layout = QVBoxLayout()
         user_layout.setSpacing(2)  # Уменьшенный интервал
 
-        name = user_info.get("data", {}).get("name", "Unknown")
+        name = user_info.get("data", {}).get("name", "Неизвестно")
         name_label = QLabel(f"Name: {name}")
         name_label.setObjectName("usernameLabel")
 
-        code = user_info.get("data", {}).get("code", "")
-        code_label = QLabel(f"Code: {code}")
+        code = user_info.get("data", {}).get("id", "")
+        code_label = QLabel(f"ID: {code}")
 
         user_layout.addWidget(name_label)
         user_layout.addWidget(code_label)
 
         # Reauth button
-        reauth_button = QPushButton("Re-authenticate")
+        reauth_button = QPushButton("Изменить")
         reauth_button.setObjectName("secondaryButton")
         reauth_button.clicked.connect(self._authenticate_donation_alerts)
 
@@ -678,61 +665,32 @@ class MainWindow(QMainWindow):
 
         if avatar_url:
             try:
-                # Загружаем аватарку через requests
-                response = requests.get(avatar_url)
-                response.raise_for_status()
-                data = response.content
-
-                # Обрабатываем изображение
-                img = Image.open(BytesIO(data))
-                img = img.convert("RGBA")
-
-                # Создаем круглую маску
-                mask = Image.new("L", img.size, 0)
-                from PIL import ImageDraw
-                draw = ImageDraw.Draw(mask)
-                draw.ellipse((0, 0, img.size[0], img.size[1]), fill=255)
-
-                # Применяем маску
-                img.putalpha(mask)
-
-                # Сохраняем в буфер и загружаем в QPixmap
-                buf = BytesIO()
-                img.save(buf, format="PNG")
-                buf.seek(0)
-                image_data = buf.read()
-
-                # Загружаем QPixmap из байтовых данных
-                pixmap = QPixmap()
-                pixmap.loadFromData(image_data)
-
-                # Устанавливаем QPixmap в QLabel с масштабированием
-                avatar_label.setPixmap(pixmap.scaled(
-                    64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation
-                ))
+                self._avatar_profile_download(
+                    avatar_url, avatar_label
+                )
             except Exception as e:
                 # Use placeholder
-                avatar_label.setText("Avatar")
+                avatar_label.setText("Аватар")
                 print(f"Error loading avatar: {e}")
         else:
             # Use placeholder
-            avatar_label.setText("Avatar")
+            avatar_label.setText("Аватар")
 
         # User info
         user_layout = QVBoxLayout()
 
-        username = user_info.get("user", {}).get("username", "Unknown")
-        username_label = QLabel(f"Username: {username}")
+        username = user_info.get("user", {}).get("username", "Неизвестно")
+        username_label = QLabel(f"Name: {username}")
         username_label.setObjectName("usernameLabel")
 
         user_id = user_info.get("user", {}).get("user_id", "")
-        user_id_label = QLabel(f"User ID: {user_id}")
+        user_id_label = QLabel(f"ID: {user_id}")
 
         user_layout.addWidget(username_label)
         user_layout.addWidget(user_id_label)
 
         # Reauth button
-        reauth_button = QPushButton("Re-authenticate")
+        reauth_button = QPushButton("Изменить")
         reauth_button.setObjectName("secondaryButton")
         reauth_button.clicked.connect(self._authenticate_lolzteam)
 
@@ -742,6 +700,41 @@ class MainWindow(QMainWindow):
 
         self.lzt_profile_layout.addLayout(profile_layout)
         self.lzt_profile_content.setVisible(True)
+
+    @staticmethod
+    def _avatar_profile_download(avatar_url, avatar_label):
+        # Загружаем аватарку через requests
+        response = requests.get(avatar_url)
+        response.raise_for_status()
+        data = response.content
+
+        # Обрабатываем изображение
+        img = Image.open(BytesIO(data))
+        img = img.convert("RGBA")
+
+        # Создаем круглую маску
+        mask = Image.new("L", img.size, 0)
+        from PIL import ImageDraw
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse((0, 0, img.size[0], img.size[1]), fill=255)
+
+        # Применяем маску
+        img.putalpha(mask)
+
+        # Сохраняем в буфер и загружаем в QPixmap
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        image_data = buf.read()
+
+        # Загружаем QPixmap из байтовых данных
+        pixmap = QPixmap()
+        pixmap.loadFromData(image_data)
+
+        # Устанавливаем QPixmap в QLabel с масштабированием
+        avatar_label.setPixmap(pixmap.scaled(
+            64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation
+        ))
 
     def _clear_layout(self, layout):
         """Clear all widgets from a layout.
@@ -782,7 +775,7 @@ class MainWindow(QMainWindow):
     def _on_stats_reset(self):
         """Handle statistics reset."""
         self.total_amount_label.setText(self.stats_manager.format_total_amount())
-        self.donation_count_label.setText(f"Donation count: {self.stats_manager.get_donation_count()}")
+        self.donation_count_label.setText(f"Количество донатов: {self.stats_manager.get_donation_count()}")
 
     def _on_factory_reset(self):
         """Handle factory reset."""
@@ -894,7 +887,7 @@ class MainWindow(QMainWindow):
             user_info = self.lolzteam_api.get_user_info()
             self._update_lolzteam_profile(user_info)
 
-            username = user_info.get("user", {}).get("username", "Unknown")
+            username = user_info.get("user", {}).get("username", "Неизвестно")
             print(f"LOLZTEAM user: {username}")
 
             self.notification_manager.show_success(
@@ -940,13 +933,7 @@ class MainWindow(QMainWindow):
 
         # Update total amount display
         self.total_amount_label.setText(self.stats_manager.format_total_amount())
-        self.donation_count_label.setText(f"Donation count: {self.stats_manager.get_donation_count()}")
-
-        # # Show notification
-        # self.notification_manager.show_success(
-        #     f"Новый платеж {payment['amount']} RUB от {payment['username']}",
-        #     "Новый платеж"
-        # )
+        self.donation_count_label.setText(f"Количество донатов: {self.stats_manager.get_donation_count()}")
 
     def _on_monitor_error(self, error_message):
         """Handle payment monitor error.
@@ -975,14 +962,14 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage("Мониторинг платежей остановлен")
 
             # Update UI
-            self.toggle_monitoring_button.setText("Start Monitoring")
+            self.toggle_monitoring_button.setText("Запустить мониторинг")
             self.toggle_monitoring_button.setObjectName("greenButton")
             self.toggle_monitoring_button.setStyleSheet("/* */")  # Force style refresh
             self.toggle_monitoring_button.setEnabled(True)
             self.reload_payments_button.setEnabled(True)
 
             self.monitoring_active = False
-
+            self._update_tray_menu()  # Обновляем меню трея и иконку
             self.waiting_for = None
 
             # Если монитор был остановлен в процессе изменения настроек, перезапускаем его
@@ -1001,19 +988,21 @@ class MainWindow(QMainWindow):
 
         # Reset UI if needed
         if self.waiting_for == "payment_monitor_start":
-            self.toggle_monitoring_button.setText("Start Monitoring")
+            self.toggle_monitoring_button.setText("Запустить мониторинг")
             self.toggle_monitoring_button.setObjectName("greenButton")
             self.toggle_monitoring_button.setStyleSheet("/* */")  # Force style refresh
             self.toggle_monitoring_button.setEnabled(True)
             self.reload_payments_button.setEnabled(True)
             self.monitoring_active = False
+            self._update_tray_menu()  # Обновляем меню трея и иконку
         elif self.waiting_for == "payment_monitor_stop":
-            self.toggle_monitoring_button.setText("Stop Monitoring")
+            self.toggle_monitoring_button.setText("Остановить мониторинг")
             self.toggle_monitoring_button.setObjectName("dangerButton")
             self.toggle_monitoring_button.setStyleSheet("/* */")  # Force style refresh
             self.toggle_monitoring_button.setEnabled(True)
             self.reload_payments_button.setEnabled(False)
             self.monitoring_active = True
+            self._update_tray_menu()  # Обновляем меню трея и иконку
 
         self.waiting_for = None
 
@@ -1027,12 +1016,13 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage("Мониторинг платежей запущен")
 
             # Update UI for active monitoring
-            self.toggle_monitoring_button.setText("Stop Monitoring")
+            self.toggle_monitoring_button.setText("Остановить мониторинг")
             self.toggle_monitoring_button.setObjectName("dangerButton")
             self.toggle_monitoring_button.setStyleSheet("/* */")  # Force style refresh
             self.reload_payments_button.setEnabled(False)
 
             self.monitoring_active = True
+            self._update_tray_menu()  # Обновляем меню трея и иконку
             self.waiting_for = None
 
     def _tray_activated(self, reason):
@@ -1065,7 +1055,7 @@ class MainWindow(QMainWindow):
         # Show tray notification
         self.tray_icon.showMessage(
             "LOLZTEAM DONATE",
-            "Application minimized to tray. Click the tray icon to restore.",
+            "Приложение свернуто в трей. Щелкните значок в трее, чтобы восстановить работу.",
             QSystemTrayIcon.Information,
             2000
         )
