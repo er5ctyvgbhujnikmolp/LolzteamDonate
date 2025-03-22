@@ -86,8 +86,6 @@ class DonationAlertsAPI:
             headers = {"Authorization": f"Bearer {access_token}"}
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"{self.API_URL}/user/oauth", headers=headers) as response:
-                    print(await response.text())
-                    print(response.status)
                     return response.status == 200
         except Exception:
             return False
