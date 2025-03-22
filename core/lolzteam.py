@@ -79,8 +79,8 @@ class LolzteamAPI:
             response = session.get(f"{self.BASE_URL}/me")
 
             # Print response for debugging
-            print(f"User info response status: {response.status_code}")
-            print(f"User info response: {response.text[:200]}...")  # Print first 200 chars to avoid massive output
+            # print(f"User info response status: {response.status_code}")
+            # print(f"User info response: {response.text[:200]}...")  # Print first 200 chars to avoid massive output
 
             if response.status_code != 200:
                 raise Exception(f"Failed to get user info: {response.status_code} - {response.text}")
@@ -176,7 +176,7 @@ class LolzteamAPI:
                     payment_info = {
                         "id": payment_id,
                         "amount": incoming_sum,
-                        "username": data_section.get("username", "Unknown"),
+                        "username": data_section.get("username", "Неизвестно"),
                         "comment": data_section.get("commentPlain", ""),
                         "datetime": payment_data.get("operation_date", int(time.time()))
                     }
