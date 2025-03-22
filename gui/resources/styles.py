@@ -35,7 +35,7 @@ class ColorScheme:
         SECONDARY_TEXT_COLOR = "#AAAAAA"
         BORDER_COLOR = "#333333"
         HEADER_COLOR = "#252525"
-        SCROLL_BACKGROUND = "#252525"
+        SCROLL_BACKGROUND = "#2D2D2D"
         SCROLL_HANDLE = "#444444"
         HOVER_COLOR = "#2A2A2A"
         BUTTON_TEXT_COLOR = "#FFFFFF"  # Добавлен цвет текста кнопок для темной темы
@@ -233,8 +233,7 @@ def get_main_style(theme="light"):
     }}
 
     QScrollBar:vertical {{
-        border: none;
-        background: transparent;
+        background: {colors.SCROLL_BACKGROUND};
         width: 6px;  /* Тоньше скролл */
         margin: 0px;
     }}
@@ -245,13 +244,21 @@ def get_main_style(theme="light"):
         min-height: 20px;
     }}
 
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+    QScrollBar::add-line:vertical, 
+    QScrollBar::sub-line:vertical {{
         height: 0px;
+        background: transparent;
+        border: none;
+    }}
+    
+    QScrollBar::add-page:vertical, 
+    QScrollBar::sub-page:vertical {{
+        background: transparent;
+        border: none;
     }}
     
     QScrollBar:horizontal {{
-        border: none;
-        background: transparent;
+        background: {colors.SCROLL_BACKGROUND};
         height: 6px;  /* Тоньше скролл */
         margin: 0px;
     }}
@@ -262,8 +269,17 @@ def get_main_style(theme="light"):
         min-width: 20px;
     }}
 
-    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+    QScrollBar::add-line:horizontal, 
+    QScrollBar::sub-line:horizontal {{
         width: 0px;
+        background: transparent;
+        border: none;
+    }}
+    
+    QScrollBar::add-page:horizontal, 
+    QScrollBar::sub-page:horizontal {{
+        background: transparent;
+        border: none;
     }}
 
     QFrame#line {{
@@ -556,4 +572,21 @@ def get_payment_style(theme="light"):
         color: {colors.TEXT_COLOR};
         font-style: italic;
     }}
+    
+    QToolButton#refreshButton {{
+        background-color: transparent;
+        border: none;
+        color: {ColorScheme.PRIMARY_COLOR};
+        font-size: 14px;
+        min-width: 24px;
+        max-width: 24px;
+        min-height: 24px;
+        max-height: 24px;
+        border-radius: 12px;
+    }}
+    
+    QToolButton#refreshButton:hover {{
+        background-color: {colors.HOVER_COLOR};
+    }}
+    
     """
