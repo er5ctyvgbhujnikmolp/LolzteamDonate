@@ -5,63 +5,78 @@ Payment widget for displaying recent payments.
 import datetime
 from typing import Dict, Any, List
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout,
-    QLabel, QScrollArea
+    QLabel, QScrollArea, QToolButton
 )
 
 
 class PaymentItem(QFrame):
-    """Widget for displaying a single payment."""
+    """Виджет для отображения одного платежа."""
+
+    # Сигнал, который будет отправляться при нажатии на кнопку повтора
+    repeat_clicked = pyqtSignal(dict)
 
     def __init__(self, payment: Dict[str, Any], parent=None):
-        """Initialize payment item.
+        """Инициализация элемента платежа.
 
         Args:
-            payment: Payment data
-            parent: Parent widget
+            payment: Данные платежа
+            parent: Родительский виджет
         """
         super().__init__(parent)
 
+        # Сохраняем данные платежа для возможности повторной отправки
+        self.payment_data = payment.copy()
+
         self.setObjectName("paymentItem")
 
-        # Create layout
+        # Создаем основной вертикальный layout
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(5)
 
-        # Username first
+        # Верхняя строка с никнеймом пользователя, датой и кнопкой рефреша
+        top_row = QHBoxLayout()
+
+        # Никнейм пользователя (слева)
         username_label = QLabel(payment['username'])
         username_label.setObjectName("usernameLabel")
-        layout.addWidget(username_label)
+        username_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
-        # Header layout (amount and date)
-        header_layout = QHBoxLayout()
-
-        # Amount label
-        amount_label = QLabel(f"{payment['amount']} RUB")
-        amount_label.setObjectName("amountLabel")
-
-        # Date label
+        # Дата платежа (по центру, с выравниванием вправо)
         datetime_str = self._format_date(payment.get("datetime", 0))
         date_label = QLabel(datetime_str)
         date_label.setObjectName("dateLabel")
-        date_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-        header_layout.addWidget(amount_label)
-        header_layout.addStretch()
-        header_layout.addWidget(date_label)
+        # Кнопка рефреша (справа)
+        refresh_button = QToolButton()
+        refresh_button.setObjectName("refreshButton")
+        refresh_button.setToolTip("Повторить")
+        refresh_button.setCursor(Qt.PointingHandCursor)
+        refresh_button.setText("⟳")
+        refresh_button.clicked.connect(self._on_repeat_clicked)
 
-        layout.addLayout(header_layout)
+        # Добавляем элементы в верхнюю строку
+        top_row.addWidget(username_label, 1)  # С растяжением
+        top_row.addWidget(date_label)
+        top_row.addWidget(refresh_button)
 
-        # Comment label (if any)
-        comment = payment.get("comment", "").strip()
-        if comment:
+        # Добавляем верхнюю строку в основной layout
+        layout.addLayout(top_row)
+
+        # Сумма платежа
+        amount_label = QLabel(f"{payment['amount']} руб.")
+        amount_label.setObjectName("amountLabel")
+        amount_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(amount_label)
+
+        if comment := payment.get("comment", "").strip():
             # Фильтруем комментарий через банворды если они есть
             from config.settings import Settings
             settings = Settings()
-            banwords = settings.get("app", "banwords") or []
-
-            if banwords:
+            if banwords := settings.get("app", "banwords") or []:
                 # Заменяем каждое запрещенное слово на звездочки (case-insensitive)
                 for word in banwords:
                     if word and len(word) > 0:  # Проверяем, что слово не пустое
@@ -73,18 +88,19 @@ class PaymentItem(QFrame):
             comment_label = QLabel(f"\"{comment}\"")
             comment_label.setObjectName("commentLabel")
             comment_label.setWordWrap(True)
+            comment_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
             layout.addWidget(comment_label)
 
         self.setLayout(layout)
 
     def _format_date(self, timestamp: int) -> str:
-        """Format timestamp as a readable date.
+        """Форматирование временной метки в читаемую дату.
 
         Args:
             timestamp: Unix timestamp
 
         Returns:
-            Formatted date string
+            Отформатированная строка даты
         """
         if not timestamp:
             return "Неизвестная дата"
@@ -99,9 +115,16 @@ class PaymentItem(QFrame):
         else:
             return dt.strftime("%d.%m.%Y %H:%M")
 
+    def _on_repeat_clicked(self):
+        """Обработчик нажатия на кнопку повтора."""
+        # Отправляем сигнал с данными платежа
+        self.repeat_clicked.emit(self.payment_data)
+
 
 class PaymentList(QScrollArea):
     """Widget for displaying a list of payments."""
+
+    payment_repeat_requested = pyqtSignal(dict)
 
     def __init__(self, parent=None):
         """Initialize payment list.
@@ -155,6 +178,7 @@ class PaymentList(QScrollArea):
         # Add payment items in reverse order (newest first)
         for payment in payments:
             item = PaymentItem(payment)
+            item.repeat_clicked.connect(self._on_payment_repeat)
             self.layout.insertWidget(0, item)
 
     def add_payment(self, payment: Dict[str, Any]):
@@ -171,4 +195,14 @@ class PaymentList(QScrollArea):
 
         # Add new payment item at the top
         item = PaymentItem(payment)
+        item.repeat_clicked.connect(self._on_payment_repeat)
         self.layout.insertWidget(0, item)
+
+    def _on_payment_repeat(self, payment: Dict[str, Any]):
+        """Обработка сигнала повторения платежа.
+
+        Args:
+            payment: Данные платежа для повторной отправки
+        """
+        # Передаем сигнал дальше, в MainWindow
+        self.payment_repeat_requested.emit(payment)
