@@ -331,6 +331,8 @@ class MainWindow(QMainWindow):
         self.payment_list = PaymentList()
         self.payment_list.setStyleSheet(get_payment_style(self.current_theme))
 
+        self.payment_list.payment_repeat_requested.connect(self._on_payment_repeat_requested)
+
         # Set background roles explicitly
         self.payment_list.setAutoFillBackground(True)
         payments_group.setAutoFillBackground(True)
@@ -935,6 +937,83 @@ class MainWindow(QMainWindow):
         self.total_amount_label.setText(self.stats_manager.format_total_amount())
         self.donation_count_label.setText(f"Количество донатов: {self.stats_manager.get_donation_count()}")
 
+    def _on_payment_repeat_requested(self, payment):
+        """Обработка запроса на повторную отправку уведомления о платеже в DonationAlerts.
+        
+        Args:
+            payment: Данные платежа для повторной отправки
+        """
+        if not self.settings.is_donation_alerts_configured():
+            self.notification_manager.show_error(
+                "DonationAlerts не настроен. Невозможно отправить уведомление.",
+                "Ошибка повторной отправки"
+            )
+            return
+
+        # Проверим, что у нас есть все необходимые данные
+        if any(key not in payment for key in ['amount', 'username']):
+            self.notification_manager.show_error(
+                "Недостаточно данных для отправки уведомления.",
+                "Ошибка повторной отправки"
+            )
+            return
+
+        # Отправляем уведомление асинхронно
+        try:
+            # Получаем токен DonationAlerts
+            token = self.settings.get("donation_alerts", "access_token")
+
+            # Получаем комментарий, если есть
+            comment = payment.get("comment", "")
+
+            # Отправляем асинхронно
+            self.async_helper.run_async(
+                self._send_donation_alert,
+                token,
+                payment["amount"],
+                payment["username"],
+                comment
+            )
+
+            # Показываем уведомление, что запрос на повторную отправку отправлен
+            self.notification_manager.show_info(
+                f"Уведомление от {payment['username']} на сумму {payment['amount']} руб. отправляется в DonationAlerts.",
+                "Повторная отправка"
+            )
+
+        except Exception as e:
+            self.notification_manager.show_error(
+                f"Ошибка при повторной отправке: {str(e)}",
+                "Ошибка повторной отправки"
+            )
+
+    async def _send_donation_alert(self, token, amount, username, comment=""):
+        """Отправить уведомление в DonationAlerts.
+
+        Args:
+            token: Токен доступа DonationAlerts
+            amount: Сумма платежа
+            username: Имя пользователя
+            comment: Комментарий к платежу (опционально)
+
+        Returns:
+            Результат отправки
+        """
+        try:
+            # Формируем заголовок и сообщение
+            header = f"{username} — {amount} руб."
+
+            # Отправляем уведомление
+            result = await self.donation_alerts_api.send_custom_alert(token, header, comment)
+
+            # Обновляем интерфейс в главном потоке
+            QApplication.instance().processEvents()
+
+            return result
+        except Exception as e:
+            # В случае ошибки возвращаем её для обработки
+            return {"error": str(e), "success": False}
+
     def _on_monitor_error(self, error_message):
         """Handle payment monitor error.
 
@@ -976,6 +1055,18 @@ class MainWindow(QMainWindow):
             if hasattr(self, "_restart_after_stop") and self._restart_after_stop:
                 self._restart_after_stop = False
                 QTimer.singleShot(500, self._start_monitoring)  # Задержка для стабильности
+        elif isinstance(result, dict) and "success" in result:
+            # Это результат отправки уведомления в DonationAlerts
+            if result.get("success", False):
+                self.notification_manager.show_success(
+                    "Уведомление успешно отправлено в DonationAlerts.",
+                    "Повторная отправка"
+                )
+            else:
+                self.notification_manager.show_error(
+                    f"Ошибка при отправке уведомления: {result.get('error', 'Неизвестная ошибка')}",
+                    "Ошибка повторной отправки"
+                )
 
     @pyqtSlot(str)
     def _on_async_error(self, error_message):
@@ -1036,10 +1127,20 @@ class MainWindow(QMainWindow):
 
     def _quit(self):
         """Quit the application."""
+        # Сначала скрываем иконку в трее перед закрытием
+        if hasattr(self, 'tray_icon') and self.tray_icon is not None:
+            self.tray_icon.hide()
+            # Убеждаемся, что все события обработаны
+            QApplication.processEvents()
+
         # Stop payment monitor
         if self.payment_monitor:
-            asyncio.create_task(self.payment_monitor.stop())
+            try:
+                asyncio.create_task(self.payment_monitor.stop())
+            except Exception as e:
+                print(f"Error stopping payment monitor: {e}")
 
+        print("Quit...")
         QApplication.quit()
 
     def closeEvent(self, event):
