@@ -193,58 +193,61 @@ class ConsoleInterface:
     def print_header(self):
         """Print application header."""
         print(f"{ConsoleColors.BOLD}{ConsoleColors.GREEN}")
-        print("  _     ___  _    _______ _____  _    __  __   ____   ___  _   _    _  _____ _____ ")
-        print(" | |   / _ \\| |  |__  / _|\\_   \\| |  |  \\/  | |  _ \\ / _ \\| \\ | |  / \\|_   _| ____|")
-        print(" | |  | | | | |    / /| _|  / /\\/ |  | |\\/| | | | | | | | |  \\| | / _ \\ | | |  _|  ")
-        print(" | |__| |_| | |___/ /_| |_ / / | |  | |  | | | |_| | |_| | |\\  |/ ___ \\| | | |___ ")
-        print(" |_____\\___/|_____/__/|___/\\/  |_|  |_|  |_| |____/ \\___/|_| \\_/_/   \\_\\_| |_____|")
+        print(
+            " ██╗      ██████╗ ██╗     ███████╗████████╗███████╗ █████╗ ███╗   ███╗    ██████╗  ██████╗ ███╗   ██╗ █████╗ ████████╗███████╗")
+        print(
+            " ██║     ██╔═══██╗██║     ╚══███╔╝╚══██╔══╝██╔════╝██╔══██╗████╗ ████║    ██╔══██╗██╔═══██╗████╗  ██║██╔══██╗╚══██╔══╝██╔════╝")
+        print(
+            " ██║     ██║   ██║██║       ███╔╝    ██║   █████╗  ███████║██╔████╔██║    ██║  ██║██║   ██║██╔██╗ ██║███████║   ██║   █████╗  ")
+        print(
+            " ██║     ██║   ██║██║      ███╔╝     ██║   ██╔══╝  ██╔══██║██║╚██╔╝██║    ██║  ██║██║   ██║██║╚██╗██║██╔══██║   ██║   ██╔══╝  ")
+        print(
+            " ███████╗╚██████╔╝███████╗███████╗   ██║   ███████╗██║  ██║██║ ╚═╝ ██║    ██████╔╝╚██████╔╝██║ ╚████║██║  ██║   ██║   ███████╗")
+        print(
+            " ╚══════╝ ╚═════╝ ╚══════╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝    ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝   ╚═╝   ╚══════╝")
         print(f"{ConsoleColors.ENDC}")
-        print(f"{ConsoleColors.BLUE}DonationAlerts Integration{ConsoleColors.ENDC}")
+        print(f"{ConsoleColors.BLUE}Интеграция с DonationAlerts{ConsoleColors.ENDC}")
         print()
 
     def print_status(self):
         """Print current status."""
-        print(f"{ConsoleColors.BOLD}Current Status:{ConsoleColors.ENDC}")
+        print(f"{ConsoleColors.BOLD}Текущий статус:{ConsoleColors.ENDC}")
 
-        # DonationAlerts status
-        da_token = self.settings.get("donation_alerts", "access_token")
-        if da_token:
-            print(f"  DonationAlerts: {ConsoleColors.GREEN}Configured{ConsoleColors.ENDC}")
+        if da_token := self.settings.get("donation_alerts", "access_token"):
+            print(f"  DonationAlerts: {ConsoleColors.GREEN}Настроен{ConsoleColors.ENDC}")
 
             try:
                 user_info = self.donation_alerts_api.user(da_token)
-                name = user_info.get("data", {}).get("name", "Unknown")
-                print(f"  - Logged in as: {name}")
+                name = user_info.get("data", {}).get("name", "Неизвестно")
+                print(f"  - Вы вошли как: {name}")
             except Exception:
-                print(f"  - {ConsoleColors.WARNING}Token may be invalid{ConsoleColors.ENDC}")
+                print(f"  - {ConsoleColors.WARNING}Токен может быть недействительным{ConsoleColors.ENDC}")
         else:
-            print(f"  DonationAlerts: {ConsoleColors.FAIL}Not configured{ConsoleColors.ENDC}")
+            print(f"  DonationAlerts: {ConsoleColors.FAIL}Не настроен{ConsoleColors.ENDC}")
 
-        # LOLZTEAM status
-        lzt_token = self.settings.get("lolzteam", "access_token")
-        if lzt_token:
-            print(f"  LOLZTEAM: {ConsoleColors.GREEN}Configured{ConsoleColors.ENDC}")
+        if lzt_token := self.settings.get("lolzteam", "access_token"):
+            print(f"  LOLZTEAM: {ConsoleColors.GREEN}Настроен{ConsoleColors.ENDC}")
 
             try:
                 self.lolzteam_api.set_access_token(lzt_token)
                 user_info = self.lolzteam_api.get_user_info()
-                username = user_info.get("user", {}).get("username", "Unknown")
-                print(f"  - Logged in as: {username}")
+                username = user_info.get("user", {}).get("username", "Неизвестно")
+                print(f"  - Вы вошли как: {username}")
             except Exception:
-                print(f"  - {ConsoleColors.WARNING}Token may be invalid{ConsoleColors.ENDC}")
+                print(f"  - {ConsoleColors.WARNING}Токен может быть недействительным{ConsoleColors.ENDC}")
         else:
-            print(f"  LOLZTEAM: {ConsoleColors.FAIL}Not configured{ConsoleColors.ENDC}")
+            print(f"  LOLZTEAM: {ConsoleColors.FAIL}Не настроен{ConsoleColors.ENDC}")
 
         # Monitoring settings
-        print("\nMonitoring Settings:")
-        print(f"  Minimum payment amount: {self.settings.get('app', 'min_payment_amount')} RUB")
-        print(f"  Check interval: {self.settings.get('app', 'check_interval_seconds')} seconds")
+        print("\nНастройки мониторинга:")
+        print(f"  Минимальная сумма платежа: {self.settings.get('app', 'min_payment_amount')} руб.")
+        print(f"  Интервал проверки: {self.settings.get('app', 'check_interval_seconds')} секунд")
 
         print()
 
     def authenticate_donation_alerts(self):
         """Authenticate with DonationAlerts."""
-        print(f"{ConsoleColors.HEADER}DonationAlerts Authentication{ConsoleColors.ENDC}")
+        print(f"{ConsoleColors.HEADER}Аутентификация DonationAlerts{ConsoleColors.ENDC}")
         
         # Start auth server
         auth_server = AuthServer(port=5228, token_param="access_token", is_fragment=True)
@@ -252,17 +255,17 @@ class ConsoleInterface:
 
         # Get auth URL and open browser
         auth_url = self.donation_alerts_api.login()
-        print(f"Opening browser to: {auth_url}")
+        print(f"Открытие браузера: {auth_url}")
         webbrowser.open(auth_url)
 
         try:
             # Wait for token
             while auth_server.token is None and auth_server.server is not None:
-                print("Waiting for authentication... (Press Ctrl+C to cancel)")
+                print("Ожидание аутентификации... (Нажмите Ctrl+C для отмены)")
                 try:
                     asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
                 except KeyboardInterrupt:
-                    print("\nAuthentication cancelled.")
+                    print("\nАутентификация отменена.")
                     auth_server.stop()
                     return
 
@@ -276,14 +279,15 @@ class ConsoleInterface:
                 # Get user info
                 try:
                     user_info = self.donation_alerts_api.user(auth_server.token)
-                    name = user_info.get("data", {}).get("name", "Unknown")
+                    name = user_info.get("data", {}).get("name", "Неизвестно")
 
-                    print(f"{ConsoleColors.GREEN}Authentication successful!{ConsoleColors.ENDC}")
-                    print(f"Logged in as: {name}")
+                    print(f"{ConsoleColors.GREEN}Аутентификация успешна!{ConsoleColors.ENDC}")
+                    print(f"Вы вошли как: {name}")
                 except Exception as e:
-                    print(f"{ConsoleColors.FAIL}Failed to get user info: {str(e)}{ConsoleColors.ENDC}")
+                    print(
+                        f"{ConsoleColors.FAIL}Не удалось получить информацию о пользователе: {str(e)}{ConsoleColors.ENDC}")
             else:
-                print(f"{ConsoleColors.FAIL}Authentication failed.{ConsoleColors.ENDC}")
+                print(f"{ConsoleColors.FAIL}Аутентификация не удалась.{ConsoleColors.ENDC}")
         finally:
             # Ensure server is stopped
             if auth_server.server is not None:
@@ -291,7 +295,7 @@ class ConsoleInterface:
 
     def authenticate_lolzteam(self):
         """Authenticate with LOLZTEAM."""
-        print(f"{ConsoleColors.HEADER}LOLZTEAM Authentication{ConsoleColors.ENDC}")
+        print(f"{ConsoleColors.HEADER}Аутентификация LOLZTEAM{ConsoleColors.ENDC}")
 
         # Start auth server
         auth_server = AuthServer(
@@ -301,17 +305,17 @@ class ConsoleInterface:
 
         # Get auth URL and open browser
         auth_url = self.lolzteam_api.get_auth_url()
-        print(f"Opening browser to: {auth_url}")
+        print(f"Открытие браузера: {auth_url}")
         webbrowser.open(auth_url)
 
         try:
             # Wait for token
             while auth_server.token is None and auth_server.server is not None:
-                print("Waiting for authentication... (Press Ctrl+C to cancel)")
+                print("Ожидание аутентификации... (Нажмите Ctrl+C для отмены)")
                 try:
                     asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
                 except KeyboardInterrupt:
-                    print("\nAuthentication cancelled.")
+                    print("\nАутентификация отменена.")
                     auth_server.stop()
                     return
 
@@ -325,14 +329,15 @@ class ConsoleInterface:
                 # Get user info
                 try:
                     user_info = self.lolzteam_api.get_user_info()
-                    username = user_info.get("user", {}).get("username", "Unknown")
+                    username = user_info.get("user", {}).get("username", "Неизвестно")
 
-                    print(f"{ConsoleColors.GREEN}Authentication successful!{ConsoleColors.ENDC}")
-                    print(f"Logged in as: {username}")
+                    print(f"{ConsoleColors.GREEN}Аутентификация успешна!{ConsoleColors.ENDC}")
+                    print(f"Вы вошли как: {username}")
                 except Exception as e:
-                    print(f"{ConsoleColors.FAIL}Failed to get user info: {str(e)}{ConsoleColors.ENDC}")
+                    print(
+                        f"{ConsoleColors.FAIL}Не удалось получить информацию о пользователе: {str(e)}{ConsoleColors.ENDC}")
             else:
-                print(f"{ConsoleColors.FAIL}Authentication failed.{ConsoleColors.ENDC}")
+                print(f"{ConsoleColors.FAIL}Аутентификация не удалась.{ConsoleColors.ENDC}")
         finally:
             # Ensure server is stopped
             if auth_server.server is not None:
@@ -340,9 +345,9 @@ class ConsoleInterface:
 
     def configure_settings(self):
         """Configure application settings."""
-        print(f"{ConsoleColors.HEADER}Configure Settings{ConsoleColors.ENDC}")
+        print(f"{ConsoleColors.HEADER}Настройка параметров{ConsoleColors.ENDC}")
 
-        print("\nDonationAlerts API Settings:")
+        print("\nНастройки API DonationAlerts:")
         client_id = input(f"Client ID [{self.settings.get('donation_alerts', 'client_id')}]: ")
         if client_id:
             self.settings.set("donation_alerts", "client_id", client_id)
@@ -351,7 +356,7 @@ class ConsoleInterface:
         if redirect_uri:
             self.settings.set("donation_alerts", "redirect_uri", redirect_uri)
 
-        print("\nLOLZTEAM API Settings:")
+        print("\nНастройки API LOLZTEAM:")
         client_id = input(f"Client ID [{self.settings.get('lolzteam', 'client_id')}]: ")
         if client_id:
             self.settings.set("lolzteam", "client_id", client_id)
@@ -361,31 +366,33 @@ class ConsoleInterface:
             self.settings.set("lolzteam", "redirect_uri", redirect_uri)
 
         print("\nMonitoring Settings:")
-        min_amount = input(f"Minimum payment amount [{self.settings.get('app', 'min_payment_amount')}]: ")
+        min_amount = input(f"Минимальная сумма платежа [{self.settings.get('app', 'min_payment_amount')}]: ")
         if min_amount:
             try:
                 min_amount = int(min_amount)
                 self.settings.set("app", "min_payment_amount", min_amount)
             except ValueError:
-                print(f"{ConsoleColors.WARNING}Invalid value. Using previous setting.{ConsoleColors.ENDC}")
+                print(
+                    f"{ConsoleColors.WARNING}Некорректное значение. Используем предыдущие настройки.{ConsoleColors.ENDC}")
 
-        check_interval = input(f"Check interval in seconds [{self.settings.get('app', 'check_interval_seconds')}]: ")
+        check_interval = input(f"Интервал проверки в секундах[{self.settings.get('app', 'check_interval_seconds')}]: ")
         if check_interval:
             try:
                 check_interval = int(check_interval)
                 self.settings.set("app", "check_interval_seconds", check_interval)
             except ValueError:
-                print(f"{ConsoleColors.WARNING}Invalid value. Using previous setting.{ConsoleColors.ENDC}")
+                print(
+                    f"{ConsoleColors.WARNING}Некорректное значение. Используем предыдущие настройки.{ConsoleColors.ENDC}")
 
-        print(f"{ConsoleColors.GREEN}Settings saved.{ConsoleColors.ENDC}")
+        print(f"{ConsoleColors.GREEN}Настройки сохранены.{ConsoleColors.ENDC}")
 
     def show_recent_payments(self):
         """Show recent payments from LOLZTEAM."""
         if not self.settings.is_lolzteam_configured():
-            print(f"{ConsoleColors.FAIL}LOLZTEAM is not configured.{ConsoleColors.ENDC}")
+            print(f"{ConsoleColors.FAIL}LOLZTEAM не настроен.{ConsoleColors.ENDC}")
             return
 
-        print(f"{ConsoleColors.HEADER}Recent Payments{ConsoleColors.ENDC}")
+        print(f"{ConsoleColors.HEADER}Последние платежи{ConsoleColors.ENDC}")
 
         try:
             payments = self.lolzteam_api.get_payment_history(
@@ -393,73 +400,75 @@ class ConsoleInterface:
             )
 
             if not payments:
-                print("No payments found.")
+                print("Платежи не найдены.")
                 return
 
             print(
-                f"\n{ConsoleColors.BOLD}{'Amount':^10} | {'Username':^20} | {'Date':^19} | {'Comment':^30}{ConsoleColors.ENDC}")
+                f"\n{ConsoleColors.BOLD}{'Сумма':^10} | {'Пользователь':^20} | {'Дата':^19} | {'Комментарий':^30}{ConsoleColors.ENDC}")
             print("-" * 85)
 
-            for payment in payments:
+            for payment in reversed(payments):
                 amount = payment.get("amount", 0)
-                username = payment.get("username", "Unknown")
+                username = payment.get("username", "Неизвестно")
                 timestamp = payment.get("datetime", 0)
                 comment = payment.get("comment", "").strip()
 
                 # Format date
-                date_str = "Unknown"
+                date_str = "Неизвестно"
                 if timestamp:
                     date_str = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
 
                 # Truncate comment if too long
                 if len(comment) > 30:
-                    comment = comment[:27] + "..."
+                    comment = f"{comment[:27]}..."
 
-                print(f"{amount:^10} | {username:^20} | {date_str:^19} | {comment:^30}")
+                print(f"{f'{amount} ₽':^10} | {username:^20} | {date_str:^19} | {comment:^30}")
         except Exception as e:
-            print(f"{ConsoleColors.FAIL}Failed to get payments: {str(e)}{ConsoleColors.ENDC}")
+            print(f"{ConsoleColors.FAIL}Не удалось получить платежи: {str(e)}{ConsoleColors.ENDC}")
 
-    def _on_new_payment(self, payment):
+    @staticmethod
+    def _on_new_payment(payment):
         """Handle new payment event.
-        
+
         Args:
             payment: Payment data
         """
         amount = payment.get("amount", 0)
-        username = payment.get("username", "Unknown")
+        username = payment.get("username", "Неизвестно")
         timestamp = payment.get("datetime", 0)
         comment = payment.get("comment", "").strip()
 
         # Format date
-        date_str = "Unknown"
+        date_str = "Неизвестно"
         if timestamp:
             date_str = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
 
-        print(f"\n{ConsoleColors.GREEN}[NEW PAYMENT] {amount} RUB from {username} at {date_str}{ConsoleColors.ENDC}")
+        print(f"\n{ConsoleColors.GREEN}[НОВЫЙ ПЛАТЕЖ] {amount} руб. от {username} в {date_str}{ConsoleColors.ENDC}")
         if comment:
-            print(f"Comment: {comment}")
+            print(f"Комментарий: {comment}")
 
-        print("\nPayment will be forwarded to DonationAlerts automatically.")
+        print("\nПлатеж будет автоматически переадресован в DonationAlerts.")
 
-    def _on_monitor_error(self, error_message):
+    @staticmethod
+    def _on_monitor_error(error_message):
         """Handle payment monitor error.
         
         Args:
             error_message: Error message
         """
-        print(f"\n{ConsoleColors.FAIL}[ERROR] {error_message}{ConsoleColors.ENDC}")
+        print(f"\n{ConsoleColors.FAIL}[ОШИБКА] {error_message}{ConsoleColors.ENDC}")
 
     async def _start_monitoring(self):
         """Start payment monitoring."""
         if not self.settings.is_donation_alerts_configured():
-            print(f"{ConsoleColors.FAIL}DonationAlerts is not configured.{ConsoleColors.ENDC}")
+            print(f"{ConsoleColors.FAIL}DonationAlerts не настроен.{ConsoleColors.ENDC}")
             return
 
         if not self.settings.is_lolzteam_configured():
-            print(f"{ConsoleColors.FAIL}LOLZTEAM is not configured.{ConsoleColors.ENDC}")
+            print(f"{ConsoleColors.FAIL}LOLZTEAM не настроен.{ConsoleColors.ENDC}")
             return
 
-        print(f"{ConsoleColors.HEADER}Starting Payment Monitoring{ConsoleColors.ENDC}")
+        print(f"{ConsoleColors.HEADER}Запуск мониторинга платежей{ConsoleColors.ENDC}")
 
         # Create payment monitor
         self.payment_monitor = PaymentMonitor(
@@ -481,8 +490,8 @@ class ConsoleInterface:
         # Start monitor
         await self.payment_monitor.start()
 
-        print(f"{ConsoleColors.GREEN}Payment monitoring started.{ConsoleColors.ENDC}")
-        print("Press Ctrl+C to stop.")
+        print(f"{ConsoleColors.GREEN}Мониторинг платежей запущен.{ConsoleColors.ENDC}")
+        print("Нажмите Ctrl+C для остановки.")
 
         self.running = True
 
@@ -500,7 +509,7 @@ class ConsoleInterface:
             await self.payment_monitor.stop()
             self.payment_monitor = None
 
-            print(f"{ConsoleColors.GREEN}Payment monitoring stopped.{ConsoleColors.ENDC}")
+            print(f"{ConsoleColors.GREEN}Мониторинг платежей остановлен.{ConsoleColors.ENDC}")
 
     def run(self):
         """Run the console interface."""
@@ -512,15 +521,15 @@ class ConsoleInterface:
         self.print_status()
 
         while True:
-            print("\nOptions:")
-            print("1. Start monitoring payments")
-            print("2. Show recent payments")
-            print("3. Authenticate with DonationAlerts")
-            print("4. Authenticate with LOLZTEAM")
-            print("5. Configure settings")
-            print("0. Exit")
+            print("\nОпции:")
+            print("1. Начать мониторинг платежей")
+            print("2. Показать последние платежи")
+            print("3. Авторизоваться в DonationAlerts")
+            print("4. Авторизоваться в LOLZTEAM")
+            print("5. Настроить параметры")
+            print("0. Выход")
 
-            choice = input("\nEnter your choice: ")
+            choice = input("\nВыберите опцию: ")
 
             if choice == "1":
                 try:
@@ -538,21 +547,21 @@ class ConsoleInterface:
             elif choice == "0":
                 if self.payment_monitor:
                     self.loop.run_until_complete(self._stop_monitoring())
-                print("Exiting...")
+                print("Выход...")
                 break
             else:
-                print(f"{ConsoleColors.WARNING}Invalid choice. Please try again.{ConsoleColors.ENDC}")
+                print(f"{ConsoleColors.WARNING}Неверный выбор. Пожалуйста, попробуйте снова.{ConsoleColors.ENDC}")
 
     def _handle_sigint(self):
         """Handle SIGINT (Ctrl+C)."""
         if self.running:
-            print("\nStopping payment monitoring...")
+            print("\nОстановка мониторинга платежей...")
             if self.loop and self.loop.is_running():
                 asyncio.ensure_future(self._stop_monitoring())
             else:
                 self.loop.run_until_complete(self._stop_monitoring())
         else:
-            print("\nExiting...")
+            print("\nВыход...")
             sys.exit(0)
 
 
