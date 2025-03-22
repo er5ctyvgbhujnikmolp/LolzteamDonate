@@ -234,6 +234,16 @@ class PaymentMonitor:
                                         comment = pattern.sub('*' * len(word), comment)
                                 payment["comment"] = comment
 
+                            username = payment.get("username", "")
+                            if banwords and username:
+                                for word in banwords:
+                                    if word and len(word) > 0:  # Проверяем, что слово не пустое
+                                        # Используем регулярные выражения для поиска без учета регистра
+                                        import re
+                                        pattern = re.compile(re.escape(word), re.IGNORECASE)
+                                        username = pattern.sub('*' * len(word), username)
+                                payment["username"] = username
+
                             # Notify callback for individual new payment
                             if self.on_payment_callback:
                                 print("Calling payment callback")
