@@ -8,6 +8,8 @@ import argparse
 import os
 import sys
 
+from PyQt5.QtGui import QIcon
+
 # Create necessary package structure
 package_dirs = [
     "config",
@@ -55,7 +57,8 @@ def main():
         app.setApplicationName("LOLZTEAM DONATE")
 
         # Set app icon
-        # TODO: Add app icon
+        app_icon = QIcon("gui/resources/icons/app_icon.ico")  # Укажите путь к вашей иконке
+        app.setWindowIcon(app_icon)
 
         # Initialize main window
         main_window = MainWindow()
