@@ -4,23 +4,19 @@ Settings dialog for configuring the application.
 
 import asyncio
 import threading
-import webbrowser
-from typing import Dict, Any, Optional, Callable
 
-from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QGroupBox, QFormLayout, QSpinBox,
-    QCheckBox, QTabWidget, QWidget, QDialogButtonBox,
-    QComboBox, QMessageBox, QFrame, QListWidget, QListWidgetItem
-)
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject
 from PyQt5.QtGui import QIntValidator
+from PyQt5.QtWidgets import (
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
+    QPushButton, QGroupBox, QFormLayout, QCheckBox, QTabWidget, QWidget, QComboBox, QMessageBox, QListWidget
+)
 
 from core.donation_alerts import DonationAlertsAPI
 from core.lolzteam import LolzteamAPI
 from core.stats_manager import StatsManager
-from gui.resources.styles import get_settings_style
 from gui.notification import NotificationManager
+from gui.resources.styles import get_settings_style
 from gui.title_bar import TitleBar
 
 
@@ -88,7 +84,7 @@ class SettingsDialog(QDialog):
         self.async_helper = AsyncHelper(self)
         self.async_helper.finished.connect(self._on_async_finished)
 
-        self.setWindowTitle("Settings")
+        self.setWindowTitle("Настройки")
         self.setMinimumWidth(500)
         self.setFixedWidth(600)  # Фиксированная ширина
         self.setFixedHeight(600)  # Фиксированная высота
@@ -111,7 +107,7 @@ class SettingsDialog(QDialog):
         main_layout.setSpacing(0)
 
         # Create title bar
-        self.title_bar = TitleBar(self, "Settings")
+        self.title_bar = TitleBar(self, "Настройки")
         self.title_bar.close_clicked.connect(self.reject)
         self.title_bar.minimize_clicked.connect(self.showMinimized)
 
@@ -147,7 +143,7 @@ class SettingsDialog(QDialog):
         token_layout = QHBoxLayout()
         token_layout.addWidget(self.donation_alerts_token)
 
-        self.test_donation_alerts_button = QPushButton("Test")
+        self.test_donation_alerts_button = QPushButton("Проверить")
         self.test_donation_alerts_button.setObjectName("testButton")
         self.test_donation_alerts_button.clicked.connect(self._test_donation_alerts_token)
 
@@ -156,7 +152,7 @@ class SettingsDialog(QDialog):
         donation_alerts_layout.addRow("Access Token:", token_layout)
 
         self.donation_alerts_status = QLabel()
-        donation_alerts_layout.addRow("Status:", self.donation_alerts_status)
+        donation_alerts_layout.addRow("Статус:", self.donation_alerts_status)
 
         donation_alerts_group.setLayout(donation_alerts_layout)
 
@@ -178,7 +174,7 @@ class SettingsDialog(QDialog):
         token_layout = QHBoxLayout()
         token_layout.addWidget(self.lolzteam_token)
 
-        self.test_lolzteam_button = QPushButton("Test")
+        self.test_lolzteam_button = QPushButton("Проверить")
         self.test_lolzteam_button.setObjectName("testButton")
         self.test_lolzteam_button.clicked.connect(self._test_lolzteam_token)
 
@@ -187,7 +183,7 @@ class SettingsDialog(QDialog):
         lolzteam_layout.addRow("Access Token:", token_layout)
 
         self.lolzteam_status = QLabel()
-        lolzteam_layout.addRow("Status:", self.lolzteam_status)
+        lolzteam_layout.addRow("Статус:", self.lolzteam_status)
 
         lolzteam_group.setLayout(lolzteam_layout)
 
@@ -201,7 +197,7 @@ class SettingsDialog(QDialog):
         app_layout = QVBoxLayout(app_tab)
 
         # Monitoring settings group
-        monitoring_group = QGroupBox("Payment Monitoring")
+        monitoring_group = QGroupBox("Настройки мониторинга")
         monitoring_form = QFormLayout()
 
         # Минимальная сумма платежа (без стрелок)
@@ -216,33 +212,33 @@ class SettingsDialog(QDialog):
         self.check_interval = QLineEdit()
         self.check_interval.setValidator(QIntValidator(3, 3600, self.check_interval))
         check_interval_layout.addWidget(self.check_interval)
-        check_interval_layout.addWidget(QLabel("seconds"))
+        check_interval_layout.addWidget(QLabel("сек"))
 
-        monitoring_form.addRow("Minimum payment amount:", min_amount_layout)
-        monitoring_form.addRow("Check interval:", check_interval_layout)
+        monitoring_form.addRow("Минимальная сумма:", min_amount_layout)
+        monitoring_form.addRow("Интервал проверки:", check_interval_layout)
 
         monitoring_group.setLayout(monitoring_form)
 
         # Application settings group
-        app_group = QGroupBox("Application Settings")
+        app_group = QGroupBox("Настройки приложения")
         app_form = QFormLayout()
 
-        self.start_minimized = QCheckBox("Start minimized")
-        self.start_with_system = QCheckBox("Start with system")
+        self.start_minimized = QCheckBox("Запускать свёрнутым")
+        self.start_with_system = QCheckBox("Запускать вместе с системой")
 
         # Theme selector
         self.theme_selector = QComboBox()
-        self.theme_selector.addItem("Light Theme", "light")
-        self.theme_selector.addItem("Dark Theme", "dark")
+        self.theme_selector.addItem("Светлая тема", "light")
+        self.theme_selector.addItem("Тёмная тема", "dark")
 
         app_form.addRow(self.start_minimized)
         app_form.addRow(self.start_with_system)
-        app_form.addRow("Theme:", self.theme_selector)
+        app_form.addRow("Тема:", self.theme_selector)
 
         app_group.setLayout(app_form)
 
         # Статистика и сброс
-        stats_group = QGroupBox("Statistics")
+        stats_group = QGroupBox("Статистика")
         stats_layout = QVBoxLayout()
         stats_layout.setAlignment(Qt.AlignCenter)
 
@@ -250,16 +246,16 @@ class SettingsDialog(QDialog):
         total_amount = self.stats_manager.format_total_amount()
         donation_count = self.stats_manager.get_donation_count()
 
-        self.total_label = QLabel(f"Total amount: {total_amount}")
+        self.total_label = QLabel(f"Общая сумма: {total_amount}")
         self.total_label.setObjectName("statTitleLabel")
         self.total_label.setAlignment(Qt.AlignCenter)
 
-        self.count_label = QLabel(f"Donation count: {donation_count}")
+        self.count_label = QLabel(f"Количество донатов: {donation_count}")
         self.count_label.setObjectName("statTitleLabel")
         self.count_label.setAlignment(Qt.AlignCenter)
 
         # Кнопка сброса на всю ширину
-        reset_button = QPushButton("Reset Statistics")
+        reset_button = QPushButton("Сбросить статистику")
         reset_button.setObjectName("dangerButton")
         reset_button.clicked.connect(self._confirm_reset_stats)
 
@@ -275,7 +271,7 @@ class SettingsDialog(QDialog):
         app_layout.addWidget(stats_group)
 
         # Factory reset кнопка
-        factory_reset_button = QPushButton("Factory Reset")
+        factory_reset_button = QPushButton("Сброс к заводским настройкам")
         factory_reset_button.setObjectName("dangerButton")
         factory_reset_button.clicked.connect(self._confirm_factory_reset)
         app_layout.addWidget(factory_reset_button)
@@ -283,8 +279,8 @@ class SettingsDialog(QDialog):
         app_layout.addStretch()
 
         # Add tabs to tab widget
-        tab_widget.addTab(api_tab, "API Settings")
-        tab_widget.addTab(app_tab, "Application Settings")
+        tab_widget.addTab(api_tab, "Настройки API")
+        tab_widget.addTab(app_tab, "Настройки приложения")
 
         # Create Banwords tab
         banwords_tab = QWidget()
@@ -292,14 +288,14 @@ class SettingsDialog(QDialog):
 
         # Пояснение
         explanation_label = QLabel(
-            "Banwords are words that will be replaced with asterisks in donation messages. "
-            "These words will be filtered both in the application and in messages sent to DonationAlerts."
+            "Список запрещенных слов, которые будут заменены звездочками в сообщениях донатов. "
+            "Эти слова будут фильтроваться как в приложении, так и в сообщениях, отправляемых на DonationAlerts."
         )
         explanation_label.setWordWrap(True)
         banwords_layout.addWidget(explanation_label)
 
         # Список банвордов
-        banwords_group = QGroupBox("Banned Words List")
+        banwords_group = QGroupBox("Список запрещенных слов")
         banwords_group_layout = QVBoxLayout()
 
         self.banwords_list = QListWidget()
@@ -308,12 +304,12 @@ class SettingsDialog(QDialog):
         banwords_buttons_layout = QHBoxLayout()
 
         self.add_banword_input = QLineEdit()
-        self.add_banword_input.setPlaceholderText("Enter banned word")
+        self.add_banword_input.setPlaceholderText("Введите запрещенное слово")
 
-        add_banword_button = QPushButton("Add")
+        add_banword_button = QPushButton("Добавить")
         add_banword_button.clicked.connect(self._add_banword)
 
-        remove_banword_button = QPushButton("Remove")
+        remove_banword_button = QPushButton("Удалить")
         remove_banword_button.clicked.connect(self._remove_banword)
         remove_banword_button.setObjectName("dangerButton")
 
@@ -328,7 +324,7 @@ class SettingsDialog(QDialog):
         banwords_layout.addWidget(banwords_group)
 
         # Добавление вкладки
-        tab_widget.addTab(banwords_tab, "Banned Words")
+        tab_widget.addTab(banwords_tab, "Запрещенные слова")
 
         # Add tab widget to layout
         content_layout.addWidget(tab_widget)
@@ -336,10 +332,10 @@ class SettingsDialog(QDialog):
         # Create buttons
         button_layout = QHBoxLayout()
 
-        save_button = QPushButton("Save")
+        save_button = QPushButton("Сохранить")
         save_button.clicked.connect(self._save_settings)
 
-        cancel_button = QPushButton("Cancel")
+        cancel_button = QPushButton("Отмена")
         cancel_button.setObjectName("secondaryButton")
         cancel_button.clicked.connect(self.reject)
 
@@ -370,13 +366,13 @@ class SettingsDialog(QDialog):
         if token:
             self._update_status_label(
                 self.donation_alerts_status,
-                "Valid" if self.settings.is_donation_alerts_configured() else "Not verified",
+                "Действителен" if self.settings.is_donation_alerts_configured() else "Не проверено",
                 self.settings.is_donation_alerts_configured()
             )
         else:
             self._update_status_label(
                 self.donation_alerts_status,
-                "Not configured",
+                "Не настроено",
                 None
             )
 
@@ -395,13 +391,13 @@ class SettingsDialog(QDialog):
         if token:
             self._update_status_label(
                 self.lolzteam_status,
-                "Valid" if self.settings.is_lolzteam_configured() else "Not verified",
+                "Действителен" if self.settings.is_lolzteam_configured() else "Не проверено",
                 self.settings.is_lolzteam_configured()
             )
         else:
             self._update_status_label(
                 self.lolzteam_status,
-                "Not configured",
+                "Не настроено",
                 None
             )
 
@@ -470,16 +466,14 @@ class SettingsDialog(QDialog):
         # Monitoring
         try:
             min_amount = int(self.min_payment_amount.text())
-            if min_amount < 1:
-                min_amount = 1
+            min_amount = max(min_amount, 1)
             self.settings.set("app", "min_payment_amount", min_amount)
         except (ValueError, TypeError):
             self.settings.set("app", "min_payment_amount", 1)
 
         try:
             check_interval = int(self.check_interval.text())
-            if check_interval < 3:
-                check_interval = 3
+            check_interval = max(check_interval, 3)
             self.settings.set("app", "check_interval_seconds", check_interval)
         except (ValueError, TypeError):
             self.settings.set("app", "check_interval_seconds", 30)
@@ -525,14 +519,14 @@ class SettingsDialog(QDialog):
         if not token:
             self._update_status_label(
                 self.donation_alerts_status,
-                "No token provided",
+                "Токен не указан",
                 False
             )
             return
 
         self._update_status_label(
             self.donation_alerts_status,
-            "Testing...",
+            "Проверка...",
             None
         )
 
@@ -551,14 +545,14 @@ class SettingsDialog(QDialog):
         if not token:
             self._update_status_label(
                 self.lolzteam_status,
-                "No token provided",
+                "Токен не указан",
                 False
             )
             return
 
         self._update_status_label(
             self.lolzteam_status,
-            "Testing...",
+            "Проверка...",
             None
         )
 
@@ -568,13 +562,13 @@ class SettingsDialog(QDialog):
             api.verify_token()
             self._update_status_label(
                 self.lolzteam_status,
-                "Valid",
+                "Действителен",
                 True
             )
         except Exception as e:
             self._update_status_label(
                 self.lolzteam_status,
-                "Invalid token",
+                "Неверный токен",
                 False
             )
             self.notification_manager.show_error(
@@ -587,11 +581,10 @@ class SettingsDialog(QDialog):
         if not word:
             return
 
-        # Проверяем, что такого слова еще нет в списке (case-insensitive check)
-        existing_words = []
-        for i in range(self.banwords_list.count()):
-            existing_words.append(self.banwords_list.item(i).text().lower())
-
+        existing_words = [
+            self.banwords_list.item(i).text().lower()
+            for i in range(self.banwords_list.count())
+        ]
         if word.lower() in existing_words:
             return
 
@@ -628,8 +621,8 @@ class SettingsDialog(QDialog):
         """Confirm statistics reset."""
         confirm = QMessageBox.question(
             self,
-            "Reset Statistics",
-            "Are you sure you want to reset all statistics to zero?",
+            "Сброс статистики",
+            "Вы уверены, что хотите обнулить всю статистику?",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -641,23 +634,22 @@ class SettingsDialog(QDialog):
             total_amount = self.stats_manager.format_total_amount()
             donation_count = self.stats_manager.get_donation_count()
 
-            self.total_label.setText(f"Total amount: {total_amount}")
-            self.count_label.setText(f"Donation count: {donation_count}")
+            self.total_label.setText(f"Общая сумма: {total_amount}")
+            self.count_label.setText(f"Количество донатов: {donation_count}")
 
             # Emit signal
             self.stats_reset.emit()
 
             # Show notification
-            print(123)
             self.notification_manager.show_success("Statistics have been reset")
 
     def _confirm_factory_reset(self):
         """Confirm factory reset."""
         confirm = QMessageBox.question(
             self,
-            "Factory Reset",
-            "Are you sure you want to reset the application to factory defaults?\n\n"
-            "This will remove all settings, tokens, and statistics.",
+            "Сброс к заводским настройкам",
+            "Вы уверены, что хотите сбросить приложение к заводским настройкам?\n\n"
+            "При этом будут удалены все настройки, токены и статистика.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -686,7 +678,7 @@ class SettingsDialog(QDialog):
             if isinstance(result, Exception):
                 self._update_status_label(
                     self.donation_alerts_status,
-                    "Invalid token",
+                    "Неверный токен",
                     False
                 )
                 self.notification_manager.show_error(
@@ -696,13 +688,14 @@ class SettingsDialog(QDialog):
                 is_valid = bool(result)
                 self._update_status_label(
                     self.donation_alerts_status,
-                    "Valid" if is_valid else "Invalid token",
+                    "Действительный" if is_valid else "Неверный токен",
                     is_valid
                 )
 
             self.waiting_for = None
 
-    def _update_status_label(self, label, text, is_valid):
+    @staticmethod
+    def _update_status_label(label, text, is_valid):
         """Update status label.
 
         Args:
