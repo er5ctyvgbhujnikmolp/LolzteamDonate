@@ -69,7 +69,6 @@ class DonationAlertsAPI:
         """
         headers = {"Authorization": f"Bearer {access_token}"}
         response = requests.get(f"{self.API_URL}/user/oauth", headers=headers)
-        print(response.text)
         response.raise_for_status()
 
         return response.json()
