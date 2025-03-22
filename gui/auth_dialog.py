@@ -40,7 +40,7 @@ class AuthDialog(QDialog):
         self.auth_service = AuthenticationService()
         self.settings = parent.settings if hasattr(parent, 'settings') else Settings()
 
-        self.setWindowTitle(f"Authenticate with {service.replace('_', ' ').title()}")
+        self.setWindowTitle(f"Авторизация в {service}")
         self.setMinimumSize(400, 250)
 
         # Make the dialog modal
@@ -56,7 +56,7 @@ class AuthDialog(QDialog):
         main_layout.setSpacing(0)
 
         # Create title bar
-        self.title_bar = TitleBar(self, f"Authenticate with {self.service.replace('_', ' ').title()}")
+        self.title_bar = TitleBar(self, f"Авторизация в {self.service}")
         self.title_bar.close_clicked.connect(self.reject)
         # Remove minimize button functionality
         self.title_bar.minimize_button.setVisible(False)
@@ -71,8 +71,8 @@ class AuthDialog(QDialog):
 
         # Create info label
         info_label = QLabel(
-            f"Authentication with {self.service.replace('_', ' ').title()} will open "
-            f"in your default browser. Please login and authorize the application."
+            f"Авторизация в {self.service} будет открыта "
+            f"в вашем браузере по умолчанию. Пожалуйста, войдите и разрешите доступ приложению."
         )
         info_label.setWordWrap(True)
         info_label.setAlignment(Qt.AlignCenter)
@@ -80,9 +80,9 @@ class AuthDialog(QDialog):
 
         # Create detail label
         detail_label = QLabel(
-            "After authorization, you will be redirected to a page that will "
-            "automatically communicate with this application. You can close "
-            "that page once the authorization is complete."
+            "После авторизации вы будете перенаправлены на страницу, которая "
+            "автоматически установит связь с этим приложением. Вы можете закрыть "
+            "эту страницу после завершения авторизации."
         )
         detail_label.setWordWrap(True)
         detail_label.setAlignment(Qt.AlignCenter)
@@ -96,7 +96,7 @@ class AuthDialog(QDialog):
         content_layout.addWidget(line)
 
         # Create status label
-        self.status_label = QLabel("Ready to authenticate")
+        self.status_label = QLabel("Готов к авторизации")
         self.status_label.setWordWrap(True)
         self.status_label.setAlignment(Qt.AlignCenter)
         content_layout.addWidget(self.status_label)
@@ -105,11 +105,11 @@ class AuthDialog(QDialog):
         button_layout = QHBoxLayout()
 
         # Authenticate button
-        self.auth_button = QPushButton("Start Authentication")
+        self.auth_button = QPushButton("Начать авторизацию")
         self.auth_button.clicked.connect(self._start_authentication)
 
         # Cancel button
-        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button = QPushButton("Отмена")
         self.cancel_button.setObjectName("secondaryButton")
         self.cancel_button.clicked.connect(self.reject)
 
@@ -125,7 +125,7 @@ class AuthDialog(QDialog):
 
     def _start_authentication(self):
         """Start the authentication process."""
-        self.status_label.setText("Authentication in progress...")
+        self.status_label.setText("Авторизация в процессе...")
         self.auth_button.setEnabled(False)
 
         # Открываем URL в браузере
@@ -137,10 +137,10 @@ class AuthDialog(QDialog):
             )
 
             if not success:
-                self.status_label.setText("Failed to start authentication")
+                self.status_label.setText("Не удалось начать авторизацию")
                 self.auth_button.setEnabled(True)
         except Exception as e:
-            self.status_label.setText(f"Error: {str(e)}")
+            self.status_label.setText(f"Ошибка: {str(e)}")
             self.auth_button.setEnabled(True)
 
     def _on_auth_success(self, token):
@@ -149,18 +149,17 @@ class AuthDialog(QDialog):
         Args:
             token: Authentication token
         """
-        self.status_label.setText("Authentication successful")
+        self.status_label.setText("Авторизация успешна")
         QApplication.processEvents()  # Обновляем интерфейс
 
-        if self.service == "donation_alerts":
+        if self.service == "DonationAlerts":
             # Для DonationAlerts нужно обменять код на токен
             try:
-                print(token)
                 self.settings.update_donation_alerts_token(token)
 
                 self.auth_success.emit("donation_alerts", token)
             except Exception as e:
-                self.status_label.setText(f"Error: {str(e)}")
+                self.status_label.setText(f"Ошибка: {str(e)}")
                 self.auth_button.setEnabled(True)
         else:
             try:
@@ -168,7 +167,7 @@ class AuthDialog(QDialog):
 
                 self.auth_success.emit("lolzteam", token)
             except Exception as e:
-                self.status_label.setText(f"Error: {str(e)}")
+                self.status_label.setText(f"Ошибка: {str(e)}")
                 self.auth_button.setEnabled(True)
 
     def _on_auth_error(self, error_message):
@@ -177,7 +176,7 @@ class AuthDialog(QDialog):
         Args:
             error_message: Error message
         """
-        self.status_label.setText(f"Error: {error_message}")
+        self.status_label.setText(f"Ошибка: {error_message}")
         self.auth_button.setEnabled(True)
 
 
@@ -201,7 +200,7 @@ class DonationAlertsAuthDialog(AuthDialog):
             auth_url = "about:blank"
 
         # Call parent constructor with the auth_url
-        super().__init__("donation_alerts", auth_url, parent)
+        super().__init__("DonationAlerts", auth_url, parent)
 
         # Store the API for later use
         self.donation_alerts_api = donation_alerts_api
@@ -220,6 +219,6 @@ class LolzteamAuthDialog(AuthDialog):
         """
         auth_url = lolzteam_api.get_auth_url()
 
-        super().__init__("lolzteam", auth_url, parent)
+        super().__init__("LOLZTEAM", auth_url, parent)
         self.lolzteam_api = lolzteam_api
         self.settings = parent.settings if hasattr(parent, 'settings') else Settings()
