@@ -556,24 +556,10 @@ class SettingsDialog(QDialog):
             None
         )
 
-        api = LolzteamAPI(access_token=token)
+        api = LolzteamAPI()
 
-        try:
-            api.verify_token()
-            self._update_status_label(
-                self.lolzteam_status,
-                "Действителен",
-                True
-            )
-        except Exception as e:
-            self._update_status_label(
-                self.lolzteam_status,
-                "Неверный токен",
-                False
-            )
-            self.notification_manager.show_error(
-                f"Failed to verify LOLZTEAM token: {str(e)}"
-            )
+        self.waiting_for = "lolzteam"
+        self.async_helper.run_async(api.verify_token, token)
 
     def _add_banword(self):
         """Add banword to the list."""
@@ -688,6 +674,25 @@ class SettingsDialog(QDialog):
                 is_valid = bool(result)
                 self._update_status_label(
                     self.donation_alerts_status,
+                    "Действительный" if is_valid else "Неверный токен",
+                    is_valid
+                )
+
+            self.waiting_for = None
+        elif self.waiting_for == "lolzteam":
+            if isinstance(result, Exception):
+                self._update_status_label(
+                    self.lolzteam_status,
+                    "Неверный токен",
+                    False
+                )
+                self.notification_manager.show_error(
+                    f"Failed to verify LOLZTEAM token: {str(result)}"
+                )
+            else:
+                is_valid = bool(result)
+                self._update_status_label(
+                    self.lolzteam_status,
                     "Действительный" if is_valid else "Неверный токен",
                     is_valid
                 )
