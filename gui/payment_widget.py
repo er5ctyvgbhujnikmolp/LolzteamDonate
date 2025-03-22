@@ -87,15 +87,15 @@ class PaymentItem(QFrame):
             Formatted date string
         """
         if not timestamp:
-            return "Unknown date"
+            return "Неизвестная дата"
 
         dt = datetime.datetime.fromtimestamp(timestamp)
         now = datetime.datetime.now()
 
         if dt.date() == now.date():
-            return f"Today {dt.strftime('%H:%M')}"
+            return f"Сегодня {dt.strftime('%H:%M')}"
         elif dt.date() == (now - datetime.timedelta(days=1)).date():
-            return f"Yesterday {dt.strftime('%H:%M')}"
+            return f"Вчера {dt.strftime('%H:%M')}"
         else:
             return dt.strftime("%d.%m.%Y %H:%M")
 
