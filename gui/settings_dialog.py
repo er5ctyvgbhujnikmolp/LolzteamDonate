@@ -84,6 +84,8 @@ class SettingsDialog(QDialog):
         self.async_helper = AsyncHelper(self)
         self.async_helper.finished.connect(self._on_async_finished)
 
+        self.original_values = {}
+
         self.setWindowTitle("Настройки")
         self.setMinimumWidth(500)
         self.setFixedWidth(600)  # Фиксированная ширина
@@ -107,7 +109,7 @@ class SettingsDialog(QDialog):
         main_layout.setSpacing(0)
 
         # Create title bar
-        self.title_bar = TitleBar(self, "Настройки")
+        self.title_bar = TitleBar(self, "Настройки", minimized=False)
         self.title_bar.close_clicked.connect(self.reject)
         self.title_bar.minimize_clicked.connect(self.showMinimized)
 
@@ -427,86 +429,198 @@ class SettingsDialog(QDialog):
         for word in banwords:
             self.banwords_list.addItem(word)
 
-    def _save_settings(self):
-        """Save settings to config."""
+        self._save_original_values()
+
+    def _save_original_values(self):
+        """Сохранить начальные значения настроек для отслеживания изменений."""
         # DonationAlerts
-        self.settings.set(
-            "donation_alerts",
-            "client_id",
-            self.donation_alerts_client_id.text()
-        )
-        self.settings.set(
-            "donation_alerts",
-            "redirect_uri",
-            self.donation_alerts_redirect_uri.text()
-        )
-        self.settings.set(
-            "donation_alerts",
-            "access_token",
-            self.donation_alerts_token.text()
-        )
+        self.original_values["donation_alerts_client_id"] = self.donation_alerts_client_id.text()
+        self.original_values["donation_alerts_redirect_uri"] = self.donation_alerts_redirect_uri.text()
+        self.original_values["donation_alerts_token"] = self.donation_alerts_token.text()
 
         # LOLZTEAM
-        self.settings.set(
-            "lolzteam",
-            "client_id",
-            self.lolzteam_client_id.text()
-        )
-        self.settings.set(
-            "lolzteam",
-            "redirect_uri",
-            self.lolzteam_redirect_uri.text()
-        )
-        self.settings.set(
-            "lolzteam",
-            "access_token",
-            self.lolzteam_token.text()
-        )
+        self.original_values["lolzteam_client_id"] = self.lolzteam_client_id.text()
+        self.original_values["lolzteam_redirect_uri"] = self.lolzteam_redirect_uri.text()
+        self.original_values["lolzteam_token"] = self.lolzteam_token.text()
 
-        # Monitoring
-        try:
-            min_amount = int(self.min_payment_amount.text())
-            min_amount = max(min_amount, 1)
-            self.settings.set("app", "min_payment_amount", min_amount)
-        except (ValueError, TypeError):
-            self.settings.set("app", "min_payment_amount", 1)
+        # Monitoring settings
+        self.original_values["min_payment_amount"] = self.min_payment_amount.text()
+        self.original_values["check_interval"] = self.check_interval.text()
 
-        try:
-            check_interval = int(self.check_interval.text())
-            check_interval = max(check_interval, 3)
-            self.settings.set("app", "check_interval_seconds", check_interval)
-        except (ValueError, TypeError):
-            self.settings.set("app", "check_interval_seconds", 30)
+        # App settings
+        self.original_values["start_minimized"] = self.start_minimized.isChecked()
+        self.original_values["start_with_system"] = self.start_with_system.isChecked()
+        self.original_values["theme"] = self.theme_selector.currentData()
 
-        # App
-        self.settings.set(
-            "app",
-            "start_minimized",
-            self.start_minimized.isChecked()
-        )
-        self.settings.set(
-            "app",
-            "start_with_system",
-            self.start_with_system.isChecked()
-        )
+        banwords = [
+            self.banwords_list.item(i).text()
+            for i in range(self.banwords_list.count())
+        ]
+        self.original_values["banwords"] = banwords.copy()
+
+    def _save_settings(self):
+        """Save settings to config."""
+        changes = self._get_changed_settings()
+
+        # Сохраняем только изменённые настройки
+        if "donation_alerts_client_id" in changes:
+            self.settings.set(
+                "donation_alerts",
+                "client_id",
+                self.donation_alerts_client_id.text()
+            )
+
+        if "donation_alerts_redirect_uri" in changes:
+            self.settings.set(
+                "donation_alerts",
+                "redirect_uri",
+                self.donation_alerts_redirect_uri.text()
+            )
+
+        if "donation_alerts_token" in changes:
+            self.settings.set(
+                "donation_alerts",
+                "access_token",
+                self.donation_alerts_token.text()
+            )
+
+        if "lolzteam_client_id" in changes:
+            self.settings.set(
+                "lolzteam",
+                "client_id",
+                self.lolzteam_client_id.text()
+            )
+
+        if "lolzteam_redirect_uri" in changes:
+            self.settings.set(
+                "lolzteam",
+                "redirect_uri",
+                self.lolzteam_redirect_uri.text()
+            )
+
+        if "lolzteam_token" in changes:
+            self.settings.set(
+                "lolzteam",
+                "access_token",
+                self.lolzteam_token.text()
+            )
+
+        # Monitoring settings
+        if "min_payment_amount" in changes:
+            try:
+                min_amount = int(self.min_payment_amount.text())
+                min_amount = max(min_amount, 1)
+                self.settings.set("app", "min_payment_amount", min_amount)
+            except (ValueError, TypeError):
+                self.settings.set("app", "min_payment_amount", 1)
+
+        if "check_interval" in changes:
+            try:
+                check_interval = int(self.check_interval.text())
+                check_interval = max(check_interval, 3)
+                self.settings.set("app", "check_interval_seconds", check_interval)
+            except (ValueError, TypeError):
+                self.settings.set("app", "check_interval_seconds", 30)
+
+        # App settings
+        if "start_minimized" in changes:
+            self.settings.set(
+                "app",
+                "start_minimized",
+                self.start_minimized.isChecked()
+            )
+
+        if "start_with_system" in changes:
+            self.settings.set(
+                "app",
+                "start_with_system",
+                self.start_with_system.isChecked()
+            )
 
         # Theme - только при сохранении
-        selected_theme = self.theme_selector.currentData()
-        if selected_theme != self.current_theme:
+        if "theme" in changes:
+            selected_theme = self.theme_selector.currentData()
             self.settings.set("app", "theme", selected_theme)
             self.current_theme = selected_theme
             self.theme_changed.emit(selected_theme)
 
-        # Banwords - собираем со списка
-        banwords = []
-        for i in range(self.banwords_list.count()):
-            item = self.banwords_list.item(i)
-            banwords.append(item.text())
+        # Banwords - сохраняем только если были изменения
+        if "banwords" in changes:
+            banwords = []
+            for i in range(self.banwords_list.count()):
+                item = self.banwords_list.item(i)
+                banwords.append(item.text())
 
-        self.settings.set("app", "banwords", banwords)
+            self.settings.set("app", "banwords", banwords)
 
-        self.settings_saved.emit()
+        # Сигнал о сохранении настроек отправляем только если были значимые изменения,
+        # которые требуют обновления интерфейса
+        if self._has_significant_changes(changes):
+            self.settings_saved.emit()
+
         self.accept()
+
+    def _get_changed_settings(self):
+        """Получить список изменённых настроек."""
+        changes = []
+
+        # DonationAlerts
+        if self.donation_alerts_client_id.text() != self.original_values["donation_alerts_client_id"]:
+            changes.append("donation_alerts_client_id")
+
+        if self.donation_alerts_redirect_uri.text() != self.original_values["donation_alerts_redirect_uri"]:
+            changes.append("donation_alerts_redirect_uri")
+
+        if self.donation_alerts_token.text() != self.original_values["donation_alerts_token"]:
+            changes.append("donation_alerts_token")
+
+        # LOLZTEAM
+        if self.lolzteam_client_id.text() != self.original_values["lolzteam_client_id"]:
+            changes.append("lolzteam_client_id")
+
+        if self.lolzteam_redirect_uri.text() != self.original_values["lolzteam_redirect_uri"]:
+            changes.append("lolzteam_redirect_uri")
+
+        if self.lolzteam_token.text() != self.original_values["lolzteam_token"]:
+            changes.append("lolzteam_token")
+
+        # Monitoring settings
+        if self.min_payment_amount.text() != self.original_values["min_payment_amount"]:
+            changes.append("min_payment_amount")
+
+        if self.check_interval.text() != self.original_values["check_interval"]:
+            changes.append("check_interval")
+
+        # App settings
+        if self.start_minimized.isChecked() != self.original_values["start_minimized"]:
+            changes.append("start_minimized")
+
+        if self.start_with_system.isChecked() != self.original_values["start_with_system"]:
+            changes.append("start_with_system")
+
+        if self.theme_selector.currentData() != self.original_values["theme"]:
+            changes.append("theme")
+
+        current_banwords = [
+            self.banwords_list.item(i).text()
+            for i in range(self.banwords_list.count())
+        ]
+        if set(current_banwords) != set(self.original_values["banwords"]):
+            changes.append("banwords")
+
+        return changes
+
+    @staticmethod
+    def _has_significant_changes(changes):
+        """Проверить, есть ли изменения, требующие обновления интерфейса."""
+        # Эти изменения требуют обновления API-клиентов и интерфейса
+        significant_changes = [
+            "donation_alerts_client_id", "donation_alerts_redirect_uri", "donation_alerts_token",
+            "lolzteam_client_id", "lolzteam_redirect_uri", "lolzteam_token",
+            "min_payment_amount", "check_interval"
+        ]
+
+        return any(change in significant_changes for change in changes)
 
     def reject(self):
         """Handle dialog rejection."""
