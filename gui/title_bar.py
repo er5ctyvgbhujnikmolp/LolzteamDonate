@@ -13,7 +13,7 @@ class TitleBar(QFrame):
     close_clicked = pyqtSignal()
     minimize_clicked = pyqtSignal()
 
-    def __init__(self, parent=None, title="LOLZTEAM DONATE by llimonix"):
+    def __init__(self, parent=None, title="LOLZTEAM DONATE by llimonix", minimized=True):
         """Initialize title bar.
 
         Args:
@@ -29,6 +29,7 @@ class TitleBar(QFrame):
         self._mouse_pressed = False
         self._mouse_position = None
         self._parent = parent
+        self.minimized = minimized
 
         self._init_ui(title)
 
@@ -47,10 +48,11 @@ class TitleBar(QFrame):
         self.title_label.setObjectName("windowTitle")
 
         # Buttons
-        self.minimize_button = QPushButton("—")
-        self.minimize_button.setObjectName("windowButton")
-        self.minimize_button.setToolTip("Minimize")
-        self.minimize_button.clicked.connect(self.minimize_clicked.emit)
+        if self.minimized:
+            self.minimize_button = QPushButton("—")
+            self.minimize_button.setObjectName("windowButton")
+            self.minimize_button.setToolTip("Minimize")
+            self.minimize_button.clicked.connect(self.minimize_clicked.emit)
 
         self.close_button = QPushButton("✕")
         self.close_button.setObjectName("closeButton")
@@ -60,7 +62,8 @@ class TitleBar(QFrame):
         # Add widgets to layout
         layout.addWidget(self.title_label)
         layout.addStretch()
-        layout.addWidget(self.minimize_button)
+        if self.minimized:
+            layout.addWidget(self.minimize_button)
         layout.addWidget(self.close_button)
 
         self.setLayout(layout)
