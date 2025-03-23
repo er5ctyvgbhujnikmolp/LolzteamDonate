@@ -361,6 +361,18 @@ def get_main_style(theme="light"):
         color: {colors.TEXT_COLOR};
         qproperty-alignment: AlignCenter;
     }}
+    
+    QLabel#usernameLabel {{
+        color: {colors.TEXT_COLOR};
+        margin: 0;
+        padding: 0;
+    }}
+    
+    QLabel#userIdLabel {{
+        color: {colors.SECONDARY_TEXT_COLOR};
+        margin: 0;
+        padding: 0;
+    }}
     """
 
 
@@ -521,6 +533,59 @@ def get_settings_style(theme="light"):
         font-weight: bold;
         color: {colors.TEXT_COLOR};
     }}
+    
+    /* ... ComboBox ... */
+    QComboBox {{
+        background-color: {colors.CARD_BACKGROUND};
+        color: {colors.TEXT_COLOR};
+        border: 1px solid {colors.BORDER_COLOR};
+        border-radius: 4px;
+        padding: 6px 12px 6px 12px;
+    }}
+    
+    QComboBox:hover {{
+        border: 1px solid {ColorScheme.PRIMARY_COLOR};
+    }}
+    
+    QComboBox::drop-down {{
+        subcontrol-origin: padding;
+        subcontrol-position: center right;
+        width: 20px;
+        border-left-width: 0px;
+        border-top-right-radius: 3px;
+        border-bottom-right-radius: 3px;
+    }}
+    
+    QComboBox::down-arrow {{
+        image: url(gui/resources/icons/dropdown.svg);
+        width: 12px;
+        height: 12px;
+    }}
+    
+    QComboBox QAbstractItemView {{
+        background-color: {colors.CARD_BACKGROUND};
+        color: {colors.TEXT_COLOR};
+        border: 1px solid {colors.BORDER_COLOR};
+        selection-background-color: {ColorScheme.PRIMARY_COLOR};
+        selection-color: white;
+        outline: 0;
+        padding: 2px;
+    }}
+    
+    QComboBox QAbstractItemView::item {{
+        min-height: 26px;  /* Такая же высота как у самого ComboBox */
+        padding: 4px 8px;  /* Отступы для текста */
+        border-radius: 2px;
+    }}
+    
+    QComboBox QAbstractItemView::item:hover {{
+        background-color: {colors.HOVER_COLOR};
+    }}
+    
+    QComboBox QAbstractItemView::item:selected {{
+        background-color: {ColorScheme.PRIMARY_COLOR};
+        color: white;
+    }}
     """
 
 
@@ -588,5 +653,4 @@ def get_payment_style(theme="light"):
     QToolButton#refreshButton:hover {{
         background-color: {colors.HOVER_COLOR};
     }}
-    
     """
