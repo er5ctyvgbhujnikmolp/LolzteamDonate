@@ -621,17 +621,15 @@ class MainWindow(QMainWindow):
 
         # User info
         user_layout = QVBoxLayout()
-        user_layout.setSpacing(2)  # Уменьшенный интервал
+        user_layout.setContentsMargins(10, 0, 0, 0)  # Отступ слева
 
         name = user_info.get("data", {}).get("name", "Неизвестно")
-        name_label = QLabel(f"Name: {name}")
-        name_label.setObjectName("usernameLabel")
-
         code = user_info.get("data", {}).get("id", "")
-        code_label = QLabel(f"ID: {code}")
 
-        user_layout.addWidget(name_label)
-        user_layout.addWidget(code_label)
+        info_label = QLabel(f"Name: {name}\nID: {code}")
+        info_label.setObjectName("infoLabel")
+
+        user_layout.addWidget(info_label)
 
         # Reauth button
         reauth_button = QPushButton("Изменить")
@@ -680,16 +678,15 @@ class MainWindow(QMainWindow):
 
         # User info
         user_layout = QVBoxLayout()
+        user_layout.setContentsMargins(10, 0, 0, 0)  # Отступ слева
 
         username = user_info.get("user", {}).get("username", "Неизвестно")
-        username_label = QLabel(f"Name: {username}")
-        username_label.setObjectName("usernameLabel")
-
         user_id = user_info.get("user", {}).get("user_id", "")
-        user_id_label = QLabel(f"ID: {user_id}")
 
-        user_layout.addWidget(username_label)
-        user_layout.addWidget(user_id_label)
+        info_label = QLabel(f"Name: {username}\nID: {user_id}")
+        info_label.setObjectName("infoLabel")
+
+        user_layout.addWidget(info_label)
 
         # Reauth button
         reauth_button = QPushButton("Изменить")
