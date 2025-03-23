@@ -5,28 +5,9 @@ This script handles both GUI and console modes.
 """
 
 import argparse
-import os
 import sys
 
 from PyQt5.QtGui import QIcon
-
-# Create necessary package structure
-package_dirs = [
-    "config",
-    "core",
-    "gui",
-    "gui/resources",
-    "console"
-]
-
-for directory in package_dirs:
-    os.makedirs(directory, exist_ok=True)
-
-    # Create __init__.py files
-    init_file = os.path.join(directory, "__init__.py")
-    if not os.path.exists(init_file):
-        with open(init_file, "w") as f:
-            f.write(f'"""\n{directory.capitalize()} package for LOLZTEAM DONATE.\n"""\n')
 
 
 def main():
