@@ -85,13 +85,17 @@ class PaymentItem(QFrame):
                         pattern = re.compile(re.escape(word), re.IGNORECASE)
                         comment = pattern.sub('*' * len(word), comment)
 
-            comment_label = QLabel(f"\"{comment}\"")
+            comment_label = QLabel(self.add_invisible_spaces(comment))
             comment_label.setObjectName("commentLabel")
             comment_label.setWordWrap(True)
             comment_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
             layout.addWidget(comment_label)
 
         self.setLayout(layout)
+
+    @staticmethod
+    def add_invisible_spaces(text, step=10):
+        return '\u200B'.join(text[i:i + step] for i in range(0, len(text), step))
 
     def _format_date(self, timestamp: int) -> str:
         """Форматирование временной метки в читаемую дату.
