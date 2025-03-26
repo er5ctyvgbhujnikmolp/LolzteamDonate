@@ -1,6 +1,7 @@
 """
 Style definitions for the application GUI.
 """
+from gui.resource_helper import resource_path
 
 
 # Цветовые схемы
@@ -448,6 +449,7 @@ def get_settings_style(theme="light"):
     """
     # Выбираем цветовую схему в зависимости от темы
     colors = ColorScheme.Light if theme == "light" else ColorScheme.Dark
+    drop_arrow_ico = resource_path("gui/resources/icons/dropdown.svg")
 
     return f"""
     QDialog {{
@@ -557,7 +559,7 @@ def get_settings_style(theme="light"):
     }}
     
     QComboBox::down-arrow {{
-        image: url(gui/resources/icons/dropdown.svg);
+        image: url({drop_arrow_ico});
         width: 12px;
         height: 12px;
     }}
