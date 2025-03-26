@@ -24,6 +24,7 @@ from core.stats_manager import StatsManager
 from gui.auth_dialog import DonationAlertsAuthDialog, LolzteamAuthDialog
 from gui.notification import NotificationManager
 from gui.payment_widget import PaymentList
+from gui.resource_helper import resource_path
 from gui.resources.styles import get_main_style, get_notification_style, get_payment_style, ColorScheme
 from gui.settings_dialog import SettingsDialog
 from gui.title_bar import TitleBar
@@ -371,8 +372,8 @@ class MainWindow(QMainWindow):
         self.tray_icon.setToolTip("LOLZTEAM DONATE")
 
         # Загружаем иконки для разных состояний
-        self.tray_icon_active = QIcon("gui/resources/icons/tray_icon.png")
-        self.tray_icon_inactive = QIcon("gui/resources/icons/tray_icon2.png")
+        self.tray_icon_active = QIcon(resource_path("gui/resources/icons/tray_icon.png"))
+        self.tray_icon_inactive = QIcon(resource_path("gui/resources/icons/tray_icon2.png"))
 
         # Create tray menu
         self.tray_menu = QMenu()
@@ -398,7 +399,7 @@ class MainWindow(QMainWindow):
         self.tray_icon.activated.connect(self._tray_activated)
 
         # Use a default icon for now
-        tray_icon = QIcon("gui/resources/icons/tray_icon2.png")  # Укажите путь к вашей иконке
+        tray_icon = QIcon(resource_path("gui/resources/icons/tray_icon2.png"))  # Укажите путь к вашей иконке
         self.tray_icon.setIcon(tray_icon)
         self.tray_icon.show()
 
@@ -997,6 +998,27 @@ class MainWindow(QMainWindow):
             Результат отправки
         """
         try:
+            # Получаем список банвордов
+            from config.settings import Settings
+            settings = Settings()
+            banwords = settings.get("app", "banwords") or []
+
+            # Фильтруем комментарий если есть банворды
+            if banwords and comment:
+                for word in banwords:
+                    if word and len(word) > 0:  # Проверяем, что слово не пустое
+                        # Используем регулярные выражения для поиска без учета регистра
+                        import re
+                        pattern = re.compile(re.escape(word), re.IGNORECASE)
+                        comment = pattern.sub('*' * len(word), comment)
+
+            if banwords and username:
+                for word in banwords:
+                    if word and len(word) > 0:  # Проверяем, что слово не пустое
+                        # Используем регулярные выражения для поиска без учета регистра
+                        import re
+                        pattern = re.compile(re.escape(word), re.IGNORECASE)
+                        username = pattern.sub('*' * len(word), username)
             # Формируем заголовок и сообщение
             header = f"{username} — {amount} руб."
 
