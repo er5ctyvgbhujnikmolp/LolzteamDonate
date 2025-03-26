@@ -137,6 +137,7 @@ class NotificationManager:
             message: Notification message
             notification_type: Notification type
         """
+        return
         notification = Notification(
             self.parent,
             title,
