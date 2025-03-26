@@ -14,7 +14,9 @@ import requests
 class LolzteamAPI:
     """LOLZTEAM API client."""
 
-    BASE_URL = "https://api.lzt.market"
+    BASE_URL = "https://lolz.live"
+    MARKET_URL = "https://prod-api.lzt.market"
+    FORUM_URL = "https://prod-api.lolz.live"
 
     def __init__(self, client_id: str = None, redirect_uri: str = None, access_token: str = None):
         """Initialize LOLZTEAM API client.
@@ -38,12 +40,12 @@ class LolzteamAPI:
         params = {
             "client_id": self.client_id,
             "response_type": "token",
-            "scope": "market"
+            "scope": "payment basic"
         }
 
         # Construct the URL manually to avoid URL encoding issues
         query_string = "&".join([f"{key}={value}" for key, value in params.items()])
-        return f"https://lolz.live/account/authorize?{query_string}"
+        return f"{self.BASE_URL}/account/authorize?{query_string}"
 
     def set_access_token(self, token: str) -> None:
         """Set the access token.
@@ -77,7 +79,7 @@ class LolzteamAPI:
         session.mount('https://', requests.adapters.HTTPAdapter(max_retries=3))
 
         try:
-            response = session.get(f"{self.BASE_URL}/me")
+            response = session.get(f"{self.FORUM_URL}/users/me")
             if response.status_code != 200:
                 raise Exception(f"Failed to get user info: {response.status_code} - {response.text}")
 
@@ -129,7 +131,7 @@ class LolzteamAPI:
 
         try:
             response = session.get(
-                f"{self.BASE_URL}/user/payments",
+                f"{self.MARKET_URL}/user/payments",
                 params=params
             )
 
@@ -194,7 +196,7 @@ class LolzteamAPI:
         try:
             headers = {"Authorization": f"Bearer {access_token}"}
             async with aiohttp.ClientSession() as session:
-                async with session.get(f"{self.BASE_URL}/me", headers=headers) as response:
+                async with session.get(f"{self.FORUM_URL}/users/me", headers=headers) as response:
                     return response.status == 200
         except Exception:
             return False
