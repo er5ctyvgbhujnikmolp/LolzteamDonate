@@ -9,6 +9,8 @@ import sys
 
 from PyQt5.QtGui import QIcon
 
+from gui.resource_helper import resource_path
+
 
 def main():
     """Main entry point."""
@@ -38,7 +40,7 @@ def main():
         app.setApplicationName("LOLZTEAM DONATE")
 
         # Set app icon
-        app_icon = QIcon("gui/resources/icons/app_icon.ico")  # Укажите путь к вашей иконке
+        app_icon = QIcon(resource_path("gui/resources/icons/app_icon.ico"))
         app.setWindowIcon(app_icon)
 
         # Initialize main window
