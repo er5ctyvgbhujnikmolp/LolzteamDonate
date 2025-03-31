@@ -212,7 +212,7 @@ class SettingsDialog(QDialog):
         # Интервал проверки (без стрелок)
         check_interval_layout = QHBoxLayout()
         self.check_interval = QLineEdit()
-        self.check_interval.setValidator(QIntValidator(3, 3600, self.check_interval))
+        self.check_interval.setValidator(QIntValidator(1, 3600, self.check_interval))
         check_interval_layout.addWidget(self.check_interval)
         check_interval_layout.addWidget(QLabel("сек"))
 
@@ -517,7 +517,7 @@ class SettingsDialog(QDialog):
         if "check_interval" in changes:
             try:
                 check_interval = int(self.check_interval.text())
-                check_interval = max(check_interval, 3)
+                check_interval = max(check_interval, 1)
                 self.settings.set("app", "check_interval_seconds", check_interval)
             except (ValueError, TypeError):
                 self.settings.set("app", "check_interval_seconds", 30)
