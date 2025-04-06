@@ -1,15 +1,10 @@
-"""
-LOLZTEAM API integration module.
-Handles authentication and payment monitoring for LOLZTEAM.
-"""
-
-import json
+import logging
 import time
 from typing import Dict, Any, List
 
-import aiohttp
-import requests
+import httpx
 
+logger = logging.getLogger("LolzteamAPI")
 
 class LolzteamAPI:
     """LOLZTEAM API client."""
@@ -23,11 +18,14 @@ class LolzteamAPI:
 
         Args:
             client_id: Application client ID
+            redirect_uri: Redirect URI for OAuth flow
             access_token: Access token
         """
         self.client_id = client_id
         self.redirect_uri = redirect_uri
         self.access_token = access_token
+        self._http_client = None
+        self.logger = logging.getLogger("LolzteamAPI")
 
     def get_auth_url(self) -> str:
         """Get the OAuth authorization URL.
@@ -35,8 +33,7 @@ class LolzteamAPI:
         Returns:
             Authorization URL for user to visit
         """
-        # Using a different construction method and using 'https://lolz.guru' instead of 'lolz.live'
-        # This can help avoid HTTP2 protocol errors that sometimes occur with certain domains
+        # Using a different construction method to avoid HTTP2 protocol errors
         params = {
             "client_id": self.client_id,
             "response_type": "token",
@@ -45,7 +42,9 @@ class LolzteamAPI:
 
         # Construct the URL manually to avoid URL encoding issues
         query_string = "&".join([f"{key}={value}" for key, value in params.items()])
-        return f"{self.BASE_URL}/account/authorize?{query_string}"
+        auth_url = f"{self.BASE_URL}/account/authorize?{query_string}"
+        self.logger.info(f"Generated auth URL: {auth_url}")
+        return auth_url
 
     def set_access_token(self, token: str) -> None:
         """Set the access token.
@@ -54,66 +53,70 @@ class LolzteamAPI:
             token: Access token
         """
         self.access_token = token
+        self.logger.info("Access token updated")
 
-    def get_user_info(self) -> Dict[str, Any]:
+    async def _get_http_client(self) -> httpx.AsyncClient:
+        """Get or create HTTP client.
+
+        Returns:
+            Async HTTP client
+        """
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient(
+                timeout=30.0,
+                follow_redirects=True,
+                http2=False  # Explicitly disable HTTP/2 to avoid protocol errors
+            )
+        return self._http_client
+
+    async def get_user_info(self) -> Dict[str, Any]:
         """Get user information.
 
         Returns:
             User information
 
         Raises:
-            Exception: If the request fails
+            Exception: If the request fails or token is not set
         """
         if not self.access_token:
-            raise Exception("Access token not set")
+            raise ValueError("Access token not set")
 
-        headers = {
-            "Authorization": f"Bearer {self.access_token}",
-        }
-
-        # Use session to control connection parameters
-        session = requests.Session()
-        session.headers.update(headers)
-
-        # Disable HTTP/2 to avoid protocol errors
-        session.mount('https://', requests.adapters.HTTPAdapter(max_retries=3))
+        self.logger.info("Getting user information")
+        client = await self._get_http_client()
+        headers = {"Authorization": f"Bearer {self.access_token}"}
 
         try:
-            response = session.get(f"{self.FORUM_URL}/users/me")
-            if response.status_code != 200:
-                raise Exception(f"Failed to get user info: {response.status_code} - {response.text}")
-
-            return response.json()
-        except requests.RequestException as e:
-            print(f"Request exception in get_user_info: {str(e)}")
-            raise Exception(f"Network error getting user info: {str(e)}")
-        except json.JSONDecodeError as e:
-            print(f"JSON decode error in get_user_info: {str(e)}")
-            print(f"Response text: {response.text}")
-            raise Exception(f"Invalid JSON response from server: {str(e)}")
+            response = await client.get(f"{self.FORUM_URL}/users/me", headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            username = data.get("user", {}).get("username", "unknown")
+            self.logger.info(f"Got user info for {username}")
+            return data
+        except httpx.HTTPStatusError as e:
+            self.logger.error(f"HTTP error getting user info: {e.response.status_code} - {e.response.text}")
+            raise Exception(f"Failed to get user info: {e}")
         except Exception as e:
-            print(f"Unexpected error in get_user_info: {str(e)}")
+            self.logger.error(f"Error getting user info: {str(e)}")
             raise
 
-    def get_payment_history(self, min_amount: int = 1) -> List[Dict[str, Any]]:
+    async def get_payment_history(self, min_amount: int = 1) -> List[Dict[str, Any]]:
         """Get payment history.
 
         Args:
             min_amount: Minimum payment amount
-            limit: Maximum number of payments to return
 
         Returns:
             List of payments
 
         Raises:
-            Exception: If the request fails
+            Exception: If the request fails or token is not set
         """
         if not self.access_token:
-            raise Exception("Access token not set")
+            raise ValueError("Access token not set")
 
-        headers = {
-            "Authorization": f"Bearer {self.access_token}",
-        }
+        self.logger.info(f"Getting payment history with min_amount={min_amount}")
+        client = await self._get_http_client()
+        headers = {"Authorization": f"Bearer {self.access_token}"}
 
         params = {
             "type": "receiving_money",
@@ -122,43 +125,53 @@ class LolzteamAPI:
             "is_hold": "false",
         }
 
-        # Use session to control connection parameters
-        session = requests.Session()
-        session.headers.update(headers)
-
-        # Disable HTTP/2 to avoid protocol errors
-        session.mount('https://', requests.adapters.HTTPAdapter(max_retries=3))
-
         try:
-            response = session.get(
+            response = await client.get(
                 f"{self.MARKET_URL}/user/payments",
-                params=params
+                params=params,
+                headers=headers
             )
-
-            if response.status_code != 200:
-                raise Exception(f"Failed to get payment history: {response.status_code} - {response.text}")
-
+            response.raise_for_status()
             data = response.json()
 
-            # Check data structure
             if "payments" not in data:
-                print(f"Unexpected API response structure: 'payments' key not found in: {data.keys()}")
+                self.logger.warning(f"Unexpected API response structure: 'payments' key not found in: {data.keys()}")
                 return []
 
-            # Extract payments from the response
-            payments = []
-            payments_data = data.get("payments", {})
+            payments = self._process_payment_data(data)
+            self.logger.info(f"Got {len(payments)} payments")
+            return payments
+        except httpx.HTTPStatusError as e:
+            self.logger.error(f"HTTP error getting payment history: {e.response.status_code} - {e.response.text}")
+            raise Exception(f"Failed to get payment history: {e}")
+        except Exception as e:
+            self.logger.error(f"Error getting payment history: {str(e)}")
+            raise
 
-            # If payments_data is a dict, convert it to a list
-            if isinstance(payments_data, dict):
-                for payment_id, payment_data in payments_data.items():
+    def _process_payment_data(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Process payment data from the API response.
 
+        Args:
+            data: Raw payment data from API
+
+        Returns:
+            Processed list of payments
+        """
+        payments = []
+        payments_data = data.get("payments", {})
+
+        # If payments_data is a dict, convert it to a list
+        if isinstance(payments_data, dict):
+            for payment_id, payment_data in payments_data.items():
+                try:
+                    # Process amount to clean format
                     incoming_sum = payment_data.get("incoming_sum", 0)
                     if isinstance(incoming_sum, float) and incoming_sum.is_integer():
                         incoming_sum = str(int(incoming_sum))
                     else:
                         incoming_sum = str(incoming_sum).rstrip('0').rstrip('.')
 
+                    # Extract user data
                     data_section = payment_data.get("data", {})
                     if not isinstance(data_section, dict):
                         data_section = {}
@@ -171,32 +184,38 @@ class LolzteamAPI:
                         "datetime": payment_data.get("operation_date", int(time.time()))
                     }
                     payments.append(payment_info)
-            else:
-                print(f"Unexpected payments data type: {type(payments_data)}")
+                except Exception as e:
+                    self.logger.error(f"Error processing payment {payment_id}: {str(e)}")
+        else:
+            self.logger.warning(f"Unexpected payments data type: {type(payments_data)}")
 
-            return list(reversed(payments))
+        return list(reversed(payments))
 
-        except requests.RequestException as e:
-            print(f"Request exception in get_payment_history: {str(e)}")
-            raise Exception(f"Network error getting payment history: {str(e)}")
-        except json.JSONDecodeError as e:
-            print(f"JSON decode error in get_payment_history: {str(e)}")
-            print(f"Response text: {response.text}")
-            raise Exception(f"Invalid JSON response from server: {str(e)}")
-        except Exception as e:
-            print(f"Unexpected error in get_payment_history: {str(e)}")
-            raise Exception(f"Unexpected error in get_payment_history: {str(e)}")
-
-    async def verify_token(self, access_token: str) -> bool:
+    async def verify_token(self) -> bool:
         """Verify if the access token is valid.
 
         Returns:
             True if token is valid, False otherwise
         """
-        try:
-            headers = {"Authorization": f"Bearer {access_token}"}
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"{self.FORUM_URL}/users/me", headers=headers) as response:
-                    return response.status == 200
-        except Exception:
+        if not self.access_token:
+            self.logger.warning("Cannot verify token: no token set")
             return False
+
+        try:
+            self.logger.info("Verifying access token")
+            client = await self._get_http_client()
+            headers = {"Authorization": f"Bearer {self.access_token}"}
+            response = await client.get(f"{self.FORUM_URL}/users/me", headers=headers)
+            valid = response.status_code == 200
+            self.logger.info(f"Token is {'valid' if valid else 'invalid'}")
+            return valid
+        except Exception as e:
+            self.logger.error(f"Error verifying token: {str(e)}")
+            return False
+
+    async def close(self) -> None:
+        """Close the HTTP client and cleanup resources."""
+        if self._http_client and not self._http_client.is_closed:
+            self.logger.info("Closing HTTP client")
+            await self._http_client.aclose()
+            self._http_client = None
