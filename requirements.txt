@@ -1,5 +1,6 @@
 PyQt5==5.15.9
-aiohttp==3.8.5
-requests==2.31.0
+httpx==0.25.0
+qasync==0.24.0
 asyncio==3.4.3
-pillow==11.1.0
+pillow==10.0.0
+winotify==1.1.0
