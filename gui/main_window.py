@@ -3,8 +3,10 @@ Main window for the LOLZTEAM DONATE application.
 """
 
 import asyncio
+import logging
 import threading
 from io import BytesIO
+from typing import Dict, Any
 
 import requests
 from PIL import Image
@@ -17,17 +19,17 @@ from PyQt5.QtWidgets import (
 )
 
 from config.settings import Settings
-from core.donation_alerts import DonationAlertsAPI, Scopes
+from core.donation_alerts import DonationAlertsAPI
 from core.lolzteam import LolzteamAPI
 from core.payment_monitor import PaymentMonitor
 from core.stats_manager import StatsManager
 from gui.auth_dialog import DonationAlertsAuthDialog, LolzteamAuthDialog
-from gui.notification import NotificationManager
 from gui.payment_widget import PaymentList
 from gui.resource_helper import resource_path
-from gui.resources.styles import get_main_style, get_notification_style, get_payment_style, ColorScheme
+from gui.resources.styles import get_main_style, get_payment_style, ColorScheme
 from gui.settings_dialog import SettingsDialog
 from gui.title_bar import TitleBar
+from gui.windows_notification import WindowsNotificationManager
 
 
 class AsyncHelper(QObject):
@@ -45,9 +47,14 @@ class AsyncHelper(QObject):
         self.kwargs = None
         self._thread = None
         self._event_loop = None
+        self._pending_tasks = []
+        self.logger = logging.getLogger("AsyncHelper")
 
     def run_async(self, func, *args, **kwargs):
         """Run an async function in a thread.
+
+        If the event loop is not running yet, the task will be queued
+        and executed once the event loop is available.
 
         Args:
             func: Async function to run
@@ -60,49 +67,81 @@ class AsyncHelper(QObject):
 
         # Create new thread to run the event loop if not already running
         if self._thread is None or not self._thread.is_alive():
+            self.logger.info(f"Starting new thread for async function {func.__name__}")
             self._thread = threading.Thread(target=self._run_async_thread, daemon=True)
             self._thread.start()
         else:
-            # If thread is already running, just queue the new task
-            self._queue_task()
+            self.logger.info(f"Queueing async function {func.__name__}")
+            # Queue the task to be executed when the event loop is ready
+            self._pending_tasks.append((func, args, kwargs))
+            # If event loop is running, queue directly
+            if self._event_loop and not self._event_loop.is_closed():
+                self._queue_task()
 
     def _run_async_thread(self):
         """Run the event loop in a thread."""
+        self.logger.info("Starting event loop in thread")
         self._event_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._event_loop)
 
-        try:
-            # Queue the initial task
-            self._queue_task()
+        # Process any pending tasks now that the event loop is created
+        self._process_pending_tasks()
 
+        try:
             # Run event loop until it's stopped
             self._event_loop.run_forever()
+            self.logger.info("Event loop stopped")
+        except Exception as e:
+            self.logger.error(f"Error in event loop: {str(e)}")
         finally:
             self._event_loop.close()
             self._event_loop = None
+            self.logger.info("Event loop closed")
+
+    def _process_pending_tasks(self):
+        """Process any pending tasks that were queued before the event loop was ready."""
+        if self._event_loop and not self._event_loop.is_closed():
+            for func, args, kwargs in self._pending_tasks:
+                self.logger.info(f"Processing pending task: {func.__name__}")
+                self.func = func
+                self.args = args
+                self.kwargs = kwargs
+                self._queue_task()
+            self._pending_tasks.clear()
 
     def _queue_task(self):
         """Queue a task in the event loop."""
-        if self._event_loop is None:
-            raise RuntimeError("Event loop is not running")
+        if self._event_loop is None or self._event_loop.is_closed():
+            self.logger.warning("Event loop is not running, task will be queued")
+            # Store the task to be executed when the event loop is ready
+            if (self.func, self.args, self.kwargs) not in self._pending_tasks:
+                self._pending_tasks.append((self.func, self.args, self.kwargs))
+            return
 
         # Create and queue the task
+        self.logger.info(f"Queueing task {self.func.__name__} in event loop")
         asyncio.run_coroutine_threadsafe(self._run_task(), self._event_loop)
 
     async def _run_task(self):
         """Run the async function and emit signals."""
         try:
             # For start_monitoring, we'll treat it specially
-            if self.func.__name__ == 'start' and hasattr(self.func.__self__, '_monitor_payments'):
+            if hasattr(self.func, '__name__') and self.func.__name__ == 'start' and hasattr(self.func.__self__,
+                                                                                            '_monitor_payments'):
+                self.logger.info("Starting special monitoring task")
                 # Just call the function and emit task_started
                 await self.func(*self.args, **self.kwargs)
                 self.task_started.emit()
                 # Don't emit finished for continuous tasks
             else:
+                self.logger.info(f"Running task: {self.func.__name__ if hasattr(self.func, '__name__') else 'unknown'}")
                 # For regular tasks, run normally and emit finished
                 result = await self.func(*self.args, **self.kwargs)
+                self.logger.info(
+                    f"Task completed: {self.func.__name__ if hasattr(self.func, '__name__') else 'unknown'}")
                 self.finished.emit(result)
         except Exception as e:
+            self.logger.error(f"Error in async task: {str(e)}")
             self.error.emit(str(e))
 
 
@@ -113,9 +152,13 @@ class MainWindow(QMainWindow):
         """Initialize main window."""
         super().__init__(None, Qt.FramelessWindowHint)  # Без стандартного заголовка окна
 
+        self.logger = logging.getLogger("MainWindow")
+        self.logger.info("Initializing main window")
+
         self.settings = Settings()
         self.stats_manager = StatsManager()
-        self.notification_manager = NotificationManager(self)
+        self.notification_manager = WindowsNotificationManager()
+        self.notification_manager.set_silent_mode(self.settings.is_silent_notifications_enabled())
         self.async_helper = AsyncHelper(self)
         self.async_helper.finished.connect(self._on_async_finished)
         self.async_helper.error.connect(self._on_async_error)
@@ -164,28 +207,36 @@ class MainWindow(QMainWindow):
         else:
             self.show()
 
+        QTimer.singleShot(100, self._load_user_profiles)
+
+        self.logger.info("Main window initialized")
+
     def _apply_theme(self):
         """Apply current theme to all widgets."""
         self.setStyleSheet(get_main_style(self.current_theme))
-        self.notification_manager.set_stylesheet(get_notification_style(self.current_theme))
+        # self.notification_manager.set_stylesheet(get_notification_style(self.current_theme))
 
     def _initialize_api_clients(self):
         """Initialize API clients."""
+        self.logger.info("Initializing API clients")
+
         # DonationAlerts
         da_credentials = self.settings.get_donation_alerts_credentials()
         self.donation_alerts_api = DonationAlertsAPI(
-            da_credentials["client_id"],
-            da_credentials["redirect_uri"],
-            [Scopes.USER_SHOW, Scopes.CUSTOM_ALERT_STORE]
+            client_id=da_credentials["client_id"],
+            redirect_uri=da_credentials["redirect_uri"],
+            access_token=da_credentials["access_token"]
         )
+        self.logger.info(f"DonationAlerts API initialized with client ID {da_credentials['client_id']}")
 
         # LOLZTEAM
         lzt_credentials = self.settings.get_lolzteam_credentials()
         self.lolzteam_api = LolzteamAPI(
-            lzt_credentials["client_id"],
-            lzt_credentials["redirect_uri"],
-            lzt_credentials["access_token"]
+            client_id=lzt_credentials["client_id"],
+            redirect_uri=lzt_credentials["redirect_uri"],
+            access_token=lzt_credentials["access_token"]
         )
+        self.logger.info(f"LOLZTEAM API initialized with client ID {lzt_credentials['client_id']}")
 
     def _init_ui(self):
         """Initialize UI elements."""
@@ -427,15 +478,15 @@ class MainWindow(QMainWindow):
         """Start monitoring for payments."""
         if not self.settings.is_donation_alerts_configured():
             self.notification_manager.show_error(
-                "DonationAlerts is not configured. Please authenticate first.",
-                "Configuration Error"
+                "DonationAlerts не настроен. Пожалуйста, авторизуйтесь сначала.",
+                "Ошибка конфигурации"
             )
             return
 
         if not self.settings.is_lolzteam_configured():
             self.notification_manager.show_error(
-                "LOLZTEAM is not configured. Please authenticate first.",
-                "Configuration Error"
+                "LOLZTEAM не настроен. Пожалуйста, авторизуйтесь сначала.",
+                "Ошибка конфигурации"
             )
             return
 
@@ -448,9 +499,8 @@ class MainWindow(QMainWindow):
                 self.settings.get("app", "check_interval_seconds")
             )
 
-            # Set DonationAlerts token
-            donation_alerts_token = self.settings.get("donation_alerts", "access_token")
-            self.payment_monitor.set_donation_alerts_token(donation_alerts_token)
+            # Configure URL filtering
+            self.payment_monitor.set_filter_urls(self.settings.is_url_filtering_enabled())
 
             # Set callbacks
             self.payment_monitor.set_on_payment_callback(self._on_new_payment)
@@ -461,9 +511,9 @@ class MainWindow(QMainWindow):
 
         # Start the monitor
         self.waiting_for = "payment_monitor_start"
-        self.status_bar.showMessage("Запуск мониторинга платежей...")
+        self.status_bar.showMessage("Начинаем мониторинг платежей...")
 
-        # Start monitoring in background - with improved AsyncHelper
+        # Start monitoring in background
         self.async_helper.run_async(self.payment_monitor.start)
 
         # Update UI will be done in _on_task_started when we receive the signal
@@ -475,7 +525,7 @@ class MainWindow(QMainWindow):
             self.async_helper.run_async(self.payment_monitor.stop)
 
             # Update UI
-            self.status_bar.showMessage("Остановка мониторинга платежей...")
+            self.status_bar.showMessage("Stopping payment monitoring...")
 
             # Disable button temporarily to prevent multiple clicks
             self.toggle_monitoring_button.setEnabled(False)
@@ -485,63 +535,76 @@ class MainWindow(QMainWindow):
         """Load user profiles if authenticated."""
         # Check DonationAlerts
         if self.settings.is_donation_alerts_configured():
-            token = self.settings.get("donation_alerts", "access_token")
             self.waiting_for = "donation_alerts_profile"
-
-            try:
-                # Get user info
-                user_info = self.donation_alerts_api.user(token)
-                self._update_donation_alerts_profile(user_info)
-            except Exception as e:
-                self.notification_manager.show_error(
-                    f"Failed to load DonationAlerts profile: {str(e)}"
-                )
+            self.logger.info("Loading DonationAlerts profile")
+            self.async_helper.run_async(self._load_donation_alerts_profile)
 
         # Check LOLZTEAM
         if self.settings.is_lolzteam_configured():
             self.waiting_for = "lolzteam_profile"
-
-            try:
-                # Get user info
-                user_info = self.lolzteam_api.get_user_info()
-                self._update_lolzteam_profile(user_info)
-            except Exception as e:
-                self.notification_manager.show_error(
-                    f"Failed to load LOLZTEAM profile: {str(e)}"
-                )
+            self.logger.info("Loading LOLZTEAM profile")
+            self.async_helper.run_async(self._load_lolzteam_profile)
 
         # Load recent payments if LOLZTEAM is configured
         if self.settings.is_lolzteam_configured():
-            self._load_recent_payments()
+            self.logger.info("Loading recent payments")
+            self.async_helper.run_async(self._load_recent_payments)
 
-    def _load_recent_payments(self):
-        """Load recent payments from LOLZTEAM."""
+    async def _load_donation_alerts_profile(self):
+        """Load DonationAlerts user profile asynchronously."""
         try:
-            print("Loading recent payments from LOLZTEAM...")
-            # Убедимся, что у нас есть токен и API-клиент настроен
+            # Get user info
+            user_info = await self.donation_alerts_api.user()
+            return {
+                "type": "donation_alerts",
+                "data": user_info
+            }
+        except Exception as e:
+            self.logger.error(f"Failed to load DonationAlerts profile: {str(e)}")
+            self.notification_manager.show_error(
+                "Failed to load DonationAlerts profile", "Profile Error"
+            )
+            raise
+
+    async def _load_lolzteam_profile(self):
+        """Load LOLZTEAM user profile asynchronously."""
+        try:
+            # Get user info
+            user_info = await self.lolzteam_api.get_user_info()
+            return {
+                "type": "lolzteam",
+                "data": user_info
+            }
+        except Exception as e:
+            self.logger.error(f"Failed to load LOLZTEAM profile: {str(e)}")
+            self.notification_manager.show_error(
+                "Failed to load LOLZTEAM profile", "Profile Error"
+            )
+            raise
+
+    async def _load_recent_payments(self):
+        """Load recent payments from LOLZTEAM asynchronously."""
+        try:
+            self.logger.info("Loading recent payments from LOLZTEAM...")
+            # Make sure we have a token and API client is configured
             if not self.lolzteam_api or not self.settings.is_lolzteam_configured():
-                print("LOLZTEAM not configured, can't load payments")
-                return
+                self.logger.warning("LOLZTEAM not configured, can't load payments")
+                return {"type": "payments", "data": []}
 
             min_amount = self.settings.get("app", "min_payment_amount")
-            print(f"Getting payment history with min_amount={min_amount}")
+            self.logger.info(f"Getting payment history with min_amount={min_amount}")
 
-            payments = self.lolzteam_api.get_payment_history(
-                min_amount=min_amount,
-            )
+            payments = await self.lolzteam_api.get_payment_history(min_amount=min_amount)
+            self.logger.info(f"Got {len(payments)} payments from API")
 
-            print(f"Got {len(payments)} payments from API")
-
-            self.payment_list.set_payments(payments)
-            print("Payment list updated")
-
-            # Обновляем статус
-            self.status_bar.showMessage("Платежи успешно загружены")
+            return {"type": "payments", "data": payments}
         except Exception as e:
-            print(f"Error loading payments: {str(e)}")
+            self.logger.error(f"Error loading payments: {str(e)}")
             self.notification_manager.show_error(
-                f"Не удалось загрузить историю платежей: {str(e)}"
+                f"Failed to load payment history",
+                "Loading Error"
             )
+            raise
 
     def _on_payments_updated(self, new_payments):
         """Handle new payments update from monitor.
@@ -848,19 +911,12 @@ class MainWindow(QMainWindow):
         # Save token
         self.settings.update_donation_alerts_token(token)
 
-        # Update profile
-        try:
-            user_info = self.donation_alerts_api.user(token)
-            self._update_donation_alerts_profile(user_info)
+        # Update API client
+        self.donation_alerts_api.set_access_token(token)
 
-            # self.notification_manager.show_success(
-            #     f"Successfully authenticated with DonationAlerts as {user_info.get('data', {}).get('name', 'Unknown')}"
-            # )
-        except Exception as e:
-            pass
-            # self.notification_manager.show_error(
-            #     f"Failed to get user info: {str(e)}"
-            # )
+        # Update profile
+        self.waiting_for = "donation_alerts_profile"
+        self.async_helper.run_async(self._load_donation_alerts_profile)
 
     @pyqtSlot(str, str)
     def _on_lolzteam_auth_success(self, service, token):
@@ -873,7 +929,7 @@ class MainWindow(QMainWindow):
         if service != "lolzteam":
             return
 
-        print(f"LOLZTEAM authentication successful, token: {token[:10]}...")
+        self.logger.info(f"LOLZTEAM authentication successful, token: {token[:10]}...")
 
         # Save token
         self.settings.update_lolzteam_token(token)
@@ -882,25 +938,13 @@ class MainWindow(QMainWindow):
         self.lolzteam_api.set_access_token(token)
 
         # Update profile
-        try:
-            print("Getting LOLZTEAM user info...")
-            user_info = self.lolzteam_api.get_user_info()
-            self._update_lolzteam_profile(user_info)
+        self.waiting_for = "lolzteam_profile"
+        self.async_helper.run_async(self._load_lolzteam_profile)
 
-            username = user_info.get("user", {}).get("username", "Неизвестно")
-            print(f"LOLZTEAM user: {username}")
-
-            self.notification_manager.show_success(
-                f"Успешная авторизация в LOLZTEAM под именем {username}"
-            )
-
-            # Load recent payments
-            print("Loading recent payments...")
-            self._load_recent_payments()
-        except Exception as e:
-            error_msg = f"Ошибка получения информации о пользователе: {str(e)}"
-            print(f"ERROR: {error_msg}")
-            self.notification_manager.show_error(error_msg)
+        # Load recent payments
+        self.logger.info("Loading recent payments after authentication...")
+        self.waiting_for = "load_payments"
+        self.async_helper.run_async(self._load_recent_payments)
 
     def _on_settings_saved(self):
         """Handle settings saved event."""
@@ -935,103 +979,97 @@ class MainWindow(QMainWindow):
         self.total_amount_label.setText(self.stats_manager.format_total_amount())
         self.donation_count_label.setText(f"Количество донатов: {self.stats_manager.get_donation_count()}")
 
-    def _on_payment_repeat_requested(self, payment):
-        """Обработка запроса на повторную отправку уведомления о платеже в DonationAlerts.
-        
+    def _on_payment_repeat_requested(self, payment: Dict[str, Any]):
+        """Handle payment repeat request.
+
         Args:
-            payment: Данные платежа для повторной отправки
+            payment: Payment data to resend
         """
         if not self.settings.is_donation_alerts_configured():
             self.notification_manager.show_error(
-                "DonationAlerts не настроен. Невозможно отправить уведомление.",
-                "Ошибка повторной отправки"
+                "DonationAlerts is not configured. Cannot send notification.",
+                "Resend Error"
             )
             return
 
-        # Проверим, что у нас есть все необходимые данные
+        # Check that we have all required data
         if any(key not in payment for key in ['amount', 'username']):
             self.notification_manager.show_error(
-                "Недостаточно данных для отправки уведомления.",
-                "Ошибка повторной отправки"
+                "Insufficient data to send notification.",
+                "Resend Error"
             )
             return
 
-        # Отправляем уведомление асинхронно
+        # Send notification asynchronously
         try:
-            # Получаем токен DonationAlerts
-            token = self.settings.get("donation_alerts", "access_token")
-
-            # Получаем комментарий, если есть
+            # Get the comment, if any
             comment = payment.get("comment", "")
 
-            # Отправляем асинхронно
-            self.async_helper.run_async(
-                self._send_donation_alert,
-                token,
-                payment["amount"],
-                payment["username"],
-                comment
-            )
-
-            # Показываем уведомление, что запрос на повторную отправку отправлен
-            self.notification_manager.show_info(
-                f"Уведомление от {payment['username']} на сумму {payment['amount']} руб. отправляется в DonationAlerts.",
-                "Повторная отправка"
-            )
-
-        except Exception as e:
-            self.notification_manager.show_error(
-                f"Ошибка при повторной отправке: {str(e)}",
-                "Ошибка повторной отправки"
-            )
-
-    async def _send_donation_alert(self, token, amount, username, comment=""):
-        """Отправить уведомление в DonationAlerts.
-
-        Args:
-            token: Токен доступа DonationAlerts
-            amount: Сумма платежа
-            username: Имя пользователя
-            comment: Комментарий к платежу (опционально)
-
-        Returns:
-            Результат отправки
-        """
-        try:
-            # Получаем список банвордов
+            # Get filtering settings
             from config.settings import Settings
             settings = Settings()
             banwords = settings.get("app", "banwords") or []
+            filter_urls = settings.get("app", "filter_urls", False)
 
-            # Фильтруем комментарий если есть банворды
-            if banwords and comment:
-                for word in banwords:
-                    if word and len(word) > 0:  # Проверяем, что слово не пустое
-                        # Используем регулярные выражения для поиска без учета регистра
-                        import re
-                        pattern = re.compile(re.escape(word), re.IGNORECASE)
-                        comment = pattern.sub('*' * len(word), comment)
+            # Apply text filtering
+            from core.text_filtering import filter_text_with_banwords, filter_urls_from_text
 
-            if banwords and username:
-                for word in banwords:
-                    if word and len(word) > 0:  # Проверяем, что слово не пустое
-                        # Используем регулярные выражения для поиска без учета регистра
-                        import re
-                        pattern = re.compile(re.escape(word), re.IGNORECASE)
-                        username = pattern.sub('*' * len(word), username)
-            # Формируем заголовок и сообщение
-            header = f"{username} — {amount} руб."
+            # Filter username
+            username = filter_text_with_banwords(payment["username"], banwords)
 
-            # Отправляем уведомление
-            result = await self.donation_alerts_api.send_custom_alert(token, header, comment)
+            # Filter comment
+            filtered_comment = filter_text_with_banwords(comment, banwords)
+            if filter_urls:
+                filtered_comment = filter_urls_from_text(filtered_comment)
 
-            # Обновляем интерфейс в главном потоке
+            # Send asynchronously
+            self.async_helper.run_async(
+                self._send_donation_alert,
+                payment["amount"],
+                username,
+                filtered_comment
+            )
+
+            # Show notification that resend request has been sent
+            self.notification_manager.show_info(
+                f"Notification from {payment['username']} for {payment['amount']} RUB is being sent to DonationAlerts.",
+                "Resend Request"
+            )
+
+        except Exception as e:
+            self.logger.error(f"Error during resend: {str(e)}")
+            self.notification_manager.show_error(
+                f"Error during resend: {str(e)}",
+                "Resend Error"
+            )
+
+    async def _send_donation_alert(self, amount: float, username: str, comment: str = "") -> Dict[str, Any]:
+        """Send a notification to DonationAlerts.
+
+        Args:
+            amount: Payment amount
+            username: Username
+            comment: Payment comment (optional)
+
+        Returns:
+            Result of sending
+        """
+        try:
+            self.logger.info(f"Sending alert: {username} - {amount} RUB")
+
+            # Format header and message
+            header = f"{username} — {amount} RUB"
+
+            # Send notification
+            result = await self.donation_alerts_api.send_custom_alert(header, comment)
+
+            # Process events in main thread
             QApplication.instance().processEvents()
 
-            return result
+            return {"success": True, "result": result}
         except Exception as e:
-            # В случае ошибки возвращаем её для обработки
-            return {"error": str(e), "success": False}
+            self.logger.error(f"Error sending alert: {str(e)}")
+            return {"success": False, "error": str(e)}
 
     def _on_monitor_error(self, error_message):
         """Handle payment monitor error.
@@ -1048,16 +1086,16 @@ class MainWindow(QMainWindow):
         Args:
             result: Result of the async operation
         """
-        print(f"Async operation finished: {self.waiting_for}")
+        self.logger.info(f"Async operation finished: {self.waiting_for}")
 
         if self.waiting_for == "payment_monitor_start":
             # This gets called when start() function returns, not when monitoring ends
-            print("Payment monitor initialization complete")
-            self.status_bar.showMessage("Мониторинг платежей запущен")
+            self.logger.info("Payment monitor initialization complete")
+            self.status_bar.showMessage("Запущен мониторинг платежей")
             self.waiting_for = None
         elif self.waiting_for == "payment_monitor_stop":
-            print("Payment monitor stopped")
-            self.status_bar.showMessage("Мониторинг платежей остановлен")
+            self.logger.info("Payment monitor stopped")
+            self.status_bar.showMessage("Мониторинг платежей прекращен")
 
             # Update UI
             self.toggle_monitoring_button.setText("Запустить мониторинг")
@@ -1067,24 +1105,37 @@ class MainWindow(QMainWindow):
             self.reload_payments_button.setEnabled(True)
 
             self.monitoring_active = False
-            self._update_tray_menu()  # Обновляем меню трея и иконку
+            self._update_tray_menu()  # Update tray menu and icon
             self.waiting_for = None
 
-            # Если монитор был остановлен в процессе изменения настроек, перезапускаем его
+            # If monitor was stopped during settings change, restart it
             if hasattr(self, "_restart_after_stop") and self._restart_after_stop:
                 self._restart_after_stop = False
-                QTimer.singleShot(500, self._start_monitoring)  # Задержка для стабильности
+                QTimer.singleShot(500, self._start_monitoring)  # Delay for stability
+        elif self.waiting_for == "donation_alerts_profile" and isinstance(result, dict):
+            if result["type"] == "donation_alerts":
+                self._update_donation_alerts_profile(result["data"])
+            self.waiting_for = None
+        elif self.waiting_for == "lolzteam_profile" and isinstance(result, dict):
+            if result["type"] == "lolzteam":
+                self._update_lolzteam_profile(result["data"])
+            self.waiting_for = None
+        elif self.waiting_for == "load_payments" and isinstance(result, dict):
+            if result["type"] == "payments":
+                self.payment_list.set_payments(result["data"])
+                self.status_bar.showMessage("Payments loaded successfully")
+            self.waiting_for = None
         elif isinstance(result, dict) and "success" in result:
-            # Это результат отправки уведомления в DonationAlerts
+            # This is the result of sending a notification to DonationAlerts
             if result.get("success", False):
                 self.notification_manager.show_success(
-                    "Уведомление успешно отправлено в DonationAlerts.",
-                    "Повторная отправка"
+                    "Notification successfully sent to DonationAlerts",
+                    "Resend Success"
                 )
             else:
                 self.notification_manager.show_error(
-                    f"Ошибка при отправке уведомления: {result.get('error', 'Неизвестная ошибка')}",
-                    "Ошибка повторной отправки"
+                    f"Error sending notification: {result.get('error', 'Unknown error')}",
+                    "Resend Error"
                 )
 
     @pyqtSlot(str)
@@ -1094,7 +1145,8 @@ class MainWindow(QMainWindow):
         Args:
             error_message: Error message
         """
-        self.notification_manager.show_error(error_message, "Async Operation Error")
+        self.logger.error(f"Async operation error: {error_message}")
+        self.notification_manager.show_error(error_message, "Operation Error")
 
         # Reset UI if needed
         if self.waiting_for == "payment_monitor_start":
@@ -1104,7 +1156,7 @@ class MainWindow(QMainWindow):
             self.toggle_monitoring_button.setEnabled(True)
             self.reload_payments_button.setEnabled(True)
             self.monitoring_active = False
-            self._update_tray_menu()  # Обновляем меню трея и иконку
+            self._update_tray_menu()  # Update tray menu and icon
         elif self.waiting_for == "payment_monitor_stop":
             self.toggle_monitoring_button.setText("Остановить мониторинг")
             self.toggle_monitoring_button.setObjectName("dangerButton")
@@ -1112,18 +1164,18 @@ class MainWindow(QMainWindow):
             self.toggle_monitoring_button.setEnabled(True)
             self.reload_payments_button.setEnabled(False)
             self.monitoring_active = True
-            self._update_tray_menu()  # Обновляем меню трея и иконку
+            self._update_tray_menu()  # Update tray menu and icon
 
         self.waiting_for = None
 
     @pyqtSlot()
     def _on_task_started(self):
         """Handle long-running task started signal."""
-        print("Received task_started signal")
+        self.logger.info("Received task_started signal")
 
         if self.waiting_for == "payment_monitor_start":
-            print("Payment monitoring is now active in background")
-            self.status_bar.showMessage("Мониторинг платежей запущен")
+            self.logger.info("Payment monitoring is now active in background")
+            self.status_bar.showMessage("Запущен мониторинг платежей")
 
             # Update UI for active monitoring
             self.toggle_monitoring_button.setText("Остановить мониторинг")
@@ -1132,7 +1184,7 @@ class MainWindow(QMainWindow):
             self.reload_payments_button.setEnabled(False)
 
             self.monitoring_active = True
-            self._update_tray_menu()  # Обновляем меню трея и иконку
+            self._update_tray_menu()  # Update tray menu and icon
             self.waiting_for = None
 
     def _tray_activated(self, reason):
