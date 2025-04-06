@@ -9,11 +9,18 @@ import sys
 
 from PyQt5.QtGui import QIcon
 
+from core.logging_setup import setup_logging
+from core.single_instance import SingleInstanceChecker, AlreadyRunningDialog
 from gui.resource_helper import resource_path
 
 
 def main():
     """Main entry point."""
+    # Set up logging
+    logger = setup_logging()
+    logger.info("LOLZTEAM DONATE starting...")
+
+    # Parse command line arguments
     parser = argparse.ArgumentParser(
         description="LOLZTEAM DONATE - DonationAlerts Integration"
     )
@@ -29,12 +36,12 @@ def main():
     if args.console:
         # Run in console mode
         from console.cli import ConsoleInterface
+        logger.info("Starting in console mode")
         console = ConsoleInterface()
         console.run()
     else:
         # Run in GUI mode
         from PyQt5.QtWidgets import QApplication
-        from gui.main_window import MainWindow
 
         app = QApplication(sys.argv)
         app.setApplicationName("LOLZTEAM DONATE")
@@ -43,16 +50,27 @@ def main():
         app_icon = QIcon(resource_path("gui/resources/icons/app_icon.ico"))
         app.setWindowIcon(app_icon)
 
-        # Initialize main window
-        main_window = MainWindow()
+        # Check if another instance is already running
+        instance_checker = SingleInstanceChecker("lolzteam_donate")
+        if not instance_checker.try_acquire_lock():
+            logger.warning("Another instance is already running, showing dialog")
+            dialog = AlreadyRunningDialog()
+            dialog.exec_()
+            return
 
-        # Set up async event loop integration
+        # Set up async event loop integration BEFORE creating the main window
         import qasync
         loop = qasync.QEventLoop(app)
         asyncio.set_event_loop(loop)
 
-        # Start the event loop
-        with loop:
+        # Import main window only after checking instance to avoid unnecessary imports
+        from gui.main_window import MainWindow
+
+        # Initialize main window
+        logger.info("Initializing main window")
+
+        with loop:  # This ensures that the event loop is running when MainWindow is created
+            main_window = MainWindow()
             sys.exit(loop.run_forever())
 
 
@@ -72,6 +90,22 @@ if __name__ == "__main__":
     except ImportError:
         print("Error: asyncio is required.")
         print("Please install it using: pip install asyncio")
+        sys.exit(1)
+
+    # Check for httpx
+    try:
+        import httpx
+    except ImportError:
+        print("Error: httpx is required.")
+        print("Please install it using: pip install httpx")
+        sys.exit(1)
+
+    # Check for qasync
+    try:
+        import qasync
+    except ImportError:
+        print("Error: qasync is required.")
+        print("Please install it using: pip install qasync")
         sys.exit(1)
 
     main()
