@@ -9,12 +9,13 @@ from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QGroupBox, QFormLayout, QCheckBox, QTabWidget, QWidget, QComboBox, QMessageBox, QListWidget
+    QPushButton, QGroupBox, QFormLayout, QTabWidget, QWidget, QComboBox, QListWidget
 )
 
 from core.donation_alerts import DonationAlertsAPI
 from core.lolzteam import LolzteamAPI
 from core.stats_manager import StatsManager
+from gui.custom_checkbox import CustomCheckBox
 from gui.notification import NotificationManager
 from gui.resources.styles import get_settings_style
 from gui.title_bar import TitleBar
@@ -225,8 +226,14 @@ class SettingsDialog(QDialog):
         app_group = QGroupBox("Настройки приложения")
         app_form = QFormLayout()
 
-        self.start_minimized = QCheckBox("Запускать свёрнутым")
-        self.start_with_system = QCheckBox("Запускать вместе с системой")
+        self.start_minimized = CustomCheckBox("Запускать свёрнутым")
+        self.start_minimized.set_theme(self.current_theme)
+        self.start_with_system = CustomCheckBox("Запускать вместе с системой")
+        self.start_with_system.set_theme(self.current_theme)
+
+        self.silent_notifications_checkbox = CustomCheckBox("Бесшумные уведомления")
+        self.silent_notifications_checkbox.set_theme(self.current_theme)
+        self.silent_notifications_checkbox.setChecked(self.settings.is_silent_notifications_enabled())
 
         # Theme selector
         self.theme_selector = QComboBox()
@@ -235,6 +242,7 @@ class SettingsDialog(QDialog):
 
         app_form.addRow(self.start_minimized)
         app_form.addRow(self.start_with_system)
+        app_form.addRow(self.silent_notifications_checkbox)
         app_form.addRow("Тема:", self.theme_selector)
 
         app_group.setLayout(app_form)
@@ -296,6 +304,16 @@ class SettingsDialog(QDialog):
         explanation_label.setWordWrap(True)
         banwords_layout.addWidget(explanation_label)
 
+        # URL Filtering Option
+        url_filter_layout = QHBoxLayout()
+        self.filter_urls_checkbox = CustomCheckBox("Фильтровать URL-адреса из сообщений")
+        self.filter_urls_checkbox.setChecked(self.settings.is_url_filtering_enabled())
+        self.filter_urls_checkbox.set_theme(self.current_theme)
+        url_filter_layout.addWidget(self.filter_urls_checkbox)
+        url_filter_layout.addStretch()
+
+        banwords_layout.addLayout(url_filter_layout)
+
         # Список банвордов
         banwords_group = QGroupBox("Список запрещенных слов")
         banwords_group_layout = QVBoxLayout()
@@ -321,6 +339,21 @@ class SettingsDialog(QDialog):
 
         banwords_group_layout.addWidget(self.banwords_list)
         banwords_group_layout.addLayout(banwords_buttons_layout)
+
+        import_export_layout = QHBoxLayout()
+
+        import_button = QPushButton("Импорт списка")
+        import_button.clicked.connect(self._import_banwords)
+
+        export_button = QPushButton("Экспорт списка")
+        export_button.clicked.connect(self._export_banwords)
+
+        import_export_layout.addWidget(import_button)
+        import_export_layout.addWidget(export_button)
+
+        banwords_group_layout.addWidget(self.banwords_list)
+        banwords_group_layout.addLayout(banwords_buttons_layout)
+        banwords_group_layout.addLayout(import_export_layout)
 
         banwords_group.setLayout(banwords_group_layout)
         banwords_layout.addWidget(banwords_group)
@@ -537,6 +570,14 @@ class SettingsDialog(QDialog):
                 self.start_with_system.isChecked()
             )
 
+        # URL filtering setting
+        if "filter_urls" in changes:
+            self.settings.set_url_filtering(self.filter_urls_checkbox.isChecked())
+
+        # Silent notifications setting
+        if "silent_notifications" in changes:
+            self.settings.set_silent_notifications(self.silent_notifications_checkbox.isChecked())
+
         # Theme - только при сохранении
         if "theme" in changes:
             selected_theme = self.theme_selector.currentData()
@@ -717,17 +758,85 @@ class SettingsDialog(QDialog):
 
         self.settings.set("app", "banwords", banwords)
 
+    def _update_url_filtering(self):
+        """Update URL filtering setting."""
+        is_enabled = self.filter_urls_checkbox.isChecked()
+        self.settings.set_url_filtering(is_enabled)
+        self.logger.info(f"URL filtering set to {is_enabled}")
+
+    def _import_banwords(self):
+        """Import banwords from a text file."""
+        from PyQt5.QtWidgets import QFileDialog
+
+        try:
+            filepath, _ = QFileDialog.getOpenFileName(
+                self, "Импорт запрещенных слов", "", "Текстовые файлы (*.txt);;Все файлы (*)"
+            )
+
+            if not filepath:
+                return
+
+            count = self.settings.import_banwords_from_file(filepath)
+
+            # Refresh the list
+            self.banwords_list.clear()
+            for word in self.settings.get_banwords():
+                self.banwords_list.addItem(word)
+
+            # Show notification
+            self.notification_manager.show_success(
+                f"Успешно импортировано {count} запрещенных слов",
+                "Импорт успешен"
+            )
+        except Exception as e:
+            self.logger.error(f"Error importing banwords: {e}")
+            self.notification_manager.show_error(
+                f"Не удалось импортировать запрещенные слова: {str(e)}",
+                "Ошибка импорта"
+            )
+
+    def _export_banwords(self):
+        """Export banwords to a text file."""
+        from PyQt5.QtWidgets import QFileDialog
+
+        try:
+            filepath, _ = QFileDialog.getSaveFileName(
+                self, "Экспорт запрещенных слов", "", "Текстовые файлы (*.txt);;Все файлы (*)"
+            )
+
+            if not filepath:
+                return
+
+            # Add .txt extension if not provided
+            if not filepath.lower().endswith('.txt'):
+                filepath += '.txt'
+
+            count = self.settings.export_banwords_to_file(filepath)
+
+            # Show notification
+            self.notification_manager.show_success(
+                f"Успешно экспортировано {count} запрещенных слов",
+                "Экспорт успешен"
+            )
+        except Exception as e:
+            self.logger.error(f"Error exporting banwords: {e}")
+            self.notification_manager.show_error(
+                f"Не удалось экспортировать запрещенные слова: {str(e)}",
+                "Ошибка экспорта"
+            )
+
     def _confirm_reset_stats(self):
         """Confirm statistics reset."""
-        confirm = QMessageBox.question(
+        from gui.custom_message_box import CustomMessageBox
+
+        result = CustomMessageBox.question(
             self,
             "Сброс статистики",
             "Вы уверены, что хотите обнулить всю статистику?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            ["Да", "Нет"]
         )
 
-        if confirm == QMessageBox.Yes:
+        if result == "Да":
             self.stats_manager.reset_stats()
 
             # Update labels
@@ -741,30 +850,34 @@ class SettingsDialog(QDialog):
             self.stats_reset.emit()
 
             # Show notification
-            self.notification_manager.show_success("Statistics have been reset")
+            self.notification_manager.show_success("Статистика была успешно сброшена", "Успешно")
 
     def _confirm_factory_reset(self):
         """Confirm factory reset."""
-        confirm = QMessageBox.question(
+        from gui.custom_message_box import CustomMessageBox
+
+        result = CustomMessageBox.question(
             self,
             "Сброс к заводским настройкам",
             "Вы уверены, что хотите сбросить приложение к заводским настройкам?\n\n"
             "При этом будут удалены все настройки, токены и статистика.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            ["Да", "Нет"]
         )
 
-        if confirm == QMessageBox.Yes:
-            # Выполняем сброс
+        if result == "Да":
+            # Perform reset
             self.settings.factory_reset()
 
             # Emit signal
             self.factory_reset.emit()
 
             # Show notification
-            self.notification_manager.show_success("Application has been reset to factory defaults")
+            self.notification_manager.show_success(
+                "Приложение было сброшено к заводским настройкам",
+                "Успешно"
+            )
 
-            # Закрываем диалог
+            # Close dialog
             self.accept()
 
     @pyqtSlot(object)
