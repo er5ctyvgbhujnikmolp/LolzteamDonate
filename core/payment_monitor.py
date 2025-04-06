@@ -1,15 +1,14 @@
-"""
-Payment monitoring module.
-Monitors LOLZTEAM for new payments and sends alerts to DonationAlerts.
-"""
-
 import asyncio
 import datetime
+import logging
 import time
 from typing import Dict, Any, List, Optional, Set, Callable
 
 from core.donation_alerts import DonationAlertsAPI
 from core.lolzteam import LolzteamAPI
+from core.text_filtering import filter_text_with_banwords, filter_urls_from_text
+
+logger = logging.getLogger("PaymentMonitor")
 
 
 class PaymentMonitor:
@@ -37,14 +36,15 @@ class PaymentMonitor:
         self.running = False
         self.task = None
         self.known_payment_ids: Set[str] = set()
-        self.donation_alerts_token = None
         self.on_payment_callback: Optional[Callable[[Dict[str, Any]], None]] = None
         self.on_error_callback: Optional[Callable[[str], None]] = None
         self.on_payments_updated_callback: Optional[Callable[[List[Dict[str, Any]]], None]] = None
         self.last_check_time = 0
+        self.filter_urls = False  # New setting to control URL filtering
+        self.logger = logging.getLogger("PaymentMonitor")
 
         # Debug info
-        print(f"PaymentMonitor initialized with min_amount={min_amount}, check_interval={check_interval}")
+        self.logger.info(f"PaymentMonitor initialized with min_amount={min_amount}, check_interval={check_interval}")
 
     def set_on_payments_updated_callback(self, callback: Callable[[List[Dict[str, Any]]], None]) -> None:
         """Set callback to be called when payments are updated in a cycle.
@@ -53,16 +53,7 @@ class PaymentMonitor:
             callback: Callback function that will receive the full list of payments
         """
         self.on_payments_updated_callback = callback
-        print("Payments updated callback set")
-
-    def set_donation_alerts_token(self, token: str) -> None:
-        """Set the DonationAlerts access token.
-
-        Args:
-            token: Access token
-        """
-        self.donation_alerts_token = token
-        print(f"DonationAlerts token set: {token[:10]}...")
+        self.logger.info("Payments updated callback set")
 
     def set_min_amount(self, amount: int) -> None:
         """Set the minimum payment amount to monitor.
@@ -71,7 +62,7 @@ class PaymentMonitor:
             amount: Minimum amount
         """
         self.min_amount = amount
-        print(f"Minimum payment amount set to {amount}")
+        self.logger.info(f"Minimum payment amount set to {amount}")
 
     def set_check_interval(self, interval: int) -> None:
         """Set the interval between checks.
@@ -80,7 +71,16 @@ class PaymentMonitor:
             interval: Interval in seconds
         """
         self.check_interval = interval
-        print(f"Check interval set to {interval} seconds")
+        self.logger.info(f"Check interval set to {interval} seconds")
+
+    def set_filter_urls(self, should_filter: bool) -> None:
+        """Set whether to filter URLs from payment comments.
+
+        Args:
+            should_filter: Whether to filter URLs
+        """
+        self.filter_urls = should_filter
+        self.logger.info(f"URL filtering set to {should_filter}")
 
     def set_on_payment_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
         """Set callback to be called when a new payment is detected.
@@ -89,7 +89,7 @@ class PaymentMonitor:
             callback: Callback function
         """
         self.on_payment_callback = callback
-        print("Payment callback set")
+        self.logger.info("Payment callback set")
 
     def set_on_error_callback(self, callback: Callable[[str], None]) -> None:
         """Set callback to be called when an error occurs.
@@ -98,51 +98,48 @@ class PaymentMonitor:
             callback: Callback function
         """
         self.on_error_callback = callback
-        print("Error callback set")
+        self.logger.info("Error callback set")
 
     async def start(self) -> None:
         """Start monitoring for payments."""
         if self.running:
-            print("Payment monitor already running")
+            self.logger.info("Payment monitor already running")
             return
 
-        print("Starting payment monitor...")
+        self.logger.info("Starting payment monitor...")
         self.running = True
 
         # Start the DonationAlerts alert processor
-        if self.donation_alerts_token:
-            print("Starting DonationAlerts alert processor")
-            await self.donation_alerts_api.start_alert_processor(self.donation_alerts_token)
-        else:
-            print("Warning: DonationAlerts token not set, alerts will not be sent")
+        try:
+            self.logger.info("Starting DonationAlerts alert processor")
+            await self.donation_alerts_api.start_alert_processor()
+        except Exception as e:
+            error_msg = f"Failed to start DonationAlerts alert processor: {str(e)}"
+            self.logger.error(error_msg)
             if self.on_error_callback:
-                self.on_error_callback("DonationAlerts token not set, alerts will not be sent")
+                self.on_error_callback(error_msg)
 
         # Initialize known payment IDs on first run
         try:
-            print(f"Initializing known payment IDs with min_amount={self.min_amount}")
-            payments = self.lolzteam_api.get_payment_history(
-                min_amount=self.min_amount
-            )
-            print(f"Found {len(payments)} existing payments")
+            self.logger.info(f"Initializing known payment IDs with min_amount={self.min_amount}")
+            payments = await self.lolzteam_api.get_payment_history(min_amount=self.min_amount)
+            self.logger.info(f"Found {len(payments)} existing payments")
             self.known_payment_ids = {payment["id"] for payment in payments}
-            print(f"Initialized {len(self.known_payment_ids)} known payment IDs")
+            self.logger.info(f"Initialized {len(self.known_payment_ids)} known payment IDs")
 
-            # Запомним текущее время как время последней проверки
+            # Set the last check time
             self.last_check_time = time.time()
 
             # Start the monitoring task
-            print("Starting payment monitoring task")
+            self.logger.info("Starting payment monitoring task")
             # Use the current event loop
             loop = asyncio.get_event_loop()
             self.task = loop.create_task(self._monitor_payments())
-            print("Payment monitor started")
-
-            # Don't await the task - it will run indefinitely
+            self.logger.info("Payment monitor started")
 
         except Exception as e:
             error_msg = f"Failed to initialize payment monitor: {str(e)}"
-            print(f"ERROR: {error_msg}")
+            self.logger.error(error_msg)
             if self.on_error_callback:
                 self.on_error_callback(error_msg)
             self.running = False
@@ -151,137 +148,114 @@ class PaymentMonitor:
     async def stop(self):
         """Stop monitoring for payments."""
         if not self.running:
-            print("Payment monitor not running")
+            self.logger.info("Payment monitor not running")
             return
 
-        print("Stopping payment monitor...")
+        self.logger.info("Stopping payment monitor...")
         self.running = False
 
         # Cancel and wait for the task to finish
         if self.task and not self.task.done():
-            print("Cancelling monitoring task")
+            self.logger.info("Cancelling monitoring task")
             try:
                 self.task.cancel()
                 # Give the task a chance to clean up
                 try:
                     await asyncio.wait_for(asyncio.shield(self.task), timeout=5.0)
                 except asyncio.TimeoutError:
-                    print("Timeout waiting for task to cancel, force cancelling")
+                    self.logger.warning("Timeout waiting for task to cancel, force cancelling")
                 except asyncio.CancelledError:
-                    print("Task cancelled successfully")
+                    self.logger.info("Task cancelled successfully")
             except Exception as e:
-                print(f"Error cancelling task: {e}")
+                self.logger.error(f"Error cancelling task: {e}")
 
         # Stop the DonationAlerts alert processor
         try:
-            print("Stopping DonationAlerts alert processor")
+            self.logger.info("Stopping DonationAlerts alert processor")
             await self.donation_alerts_api.stop_alert_processor()
         except Exception as e:
-            print(f"Error stopping DonationAlerts alert processor: {e}")
+            self.logger.error(f"Error stopping DonationAlerts alert processor: {e}")
 
-        print("Payment monitor stopped")
+        self.logger.info("Payment monitor stopped")
         return True  # Indicate successful stop
 
     async def _monitor_payments(self) -> None:
         """Monitor for new payments."""
-        print("Payment monitoring loop started")
+        self.logger.info("Payment monitoring loop started")
 
         try:
             while self.running:
-                print("Current loop iteration - monitoring active")
+                self.logger.info("Current loop iteration - monitoring active")
                 try:
                     current_time = datetime.datetime.now().strftime("%H:%M:%S")
-                    print(f"[{current_time}] Checking for new payments with min_amount={self.min_amount}")
+                    self.logger.info(f"[{current_time}] Checking for new payments with min_amount={self.min_amount}")
                     current_check_time = time.time()
 
                     # Track new payments in this cycle
                     new_payments = []
 
-                    # Получаем все платежи без ограничения
-                    payments = self.lolzteam_api.get_payment_history(
-                        min_amount=self.min_amount
-                    )
+                    # Get all payments without limits
+                    payments = await self.lolzteam_api.get_payment_history(min_amount=self.min_amount)
+                    self.logger.info(f"Retrieved {len(payments)} payments from API")
 
-                    print(f"Retrieved {len(payments)} payments from API")
+                    # Get filter settings from config
+                    from config.settings import Settings
+                    settings = Settings()
+                    banwords = settings.get("app", "banwords") or []
+                    filter_urls = settings.get("app", "filter_urls", False)
 
-                    # Обрабатываем каждый платеж
+                    # Process each payment
                     for payment in payments:
                         payment_id = payment["id"]
                         payment_time = payment.get("datetime", 0)
 
-                        # Проверяем, является ли платеж новым (не в известных ID и создан после последней проверки)
-                        is_new = payment_id not in self.known_payment_ids and payment_time > self.last_check_time - 300  # Добавим 5 минут запаса
+                        # Check if payment is new (not in known IDs and created after last check)
+                        is_new = payment_id not in self.known_payment_ids and payment_time > self.last_check_time - 300  # Add 5 minutes buffer
 
                         if is_new:
-                            print(f"New payment detected: ID={payment_id}, Amount={payment['amount']}, "
+                            self.logger.info(f"New payment detected: ID={payment_id}, Amount={payment['amount']}, "
                                   f"User={payment['username']}, Time={payment_time}")
                             self.known_payment_ids.add(payment_id)
+
+                            # Apply text filtering
+                            payment = self._filter_payment_content(payment, banwords, filter_urls or self.filter_urls)
                             new_payments.append(payment)  # Add to new payments list
-
-                            # Получаем список банвордов
-                            from config.settings import Settings
-                            settings = Settings()
-                            banwords = settings.get("app", "banwords") or []
-
-                            # Фильтруем комментарий если есть банворды
-                            comment = payment.get("comment", "")
-                            if banwords and comment:
-                                for word in banwords:
-                                    if word and len(word) > 0:  # Проверяем, что слово не пустое
-                                        # Используем регулярные выражения для поиска без учета регистра
-                                        import re
-                                        pattern = re.compile(re.escape(word), re.IGNORECASE)
-                                        comment = pattern.sub('*' * len(word), comment)
-                                payment["comment"] = comment
-
-                            username = payment.get("username", "")
-                            if banwords and username:
-                                for word in banwords:
-                                    if word and len(word) > 0:  # Проверяем, что слово не пустое
-                                        # Используем регулярные выражения для поиска без учета регистра
-                                        import re
-                                        pattern = re.compile(re.escape(word), re.IGNORECASE)
-                                        username = pattern.sub('*' * len(word), username)
-                                payment["username"] = username
 
                             # Notify callback for individual new payment
                             if self.on_payment_callback:
-                                print("Calling payment callback")
+                                self.logger.info("Calling payment callback")
                                 self.on_payment_callback(payment)
 
                             # Queue alert for DonationAlerts
-                            if self.donation_alerts_token:
-                                print(f"Queuing alert for DonationAlerts: {payment['amount']} RUB from "
-                                      f"{payment['username']}")
-                                await self.donation_alerts_api.queue_alert(
-                                    payment["amount"],
-                                    payment["username"],
-                                    payment.get("comment", "")
-                                )
-                            else:
-                                print("DonationAlerts token not set, alert not queued")
+                            self.logger.info(f"Queuing alert for DonationAlerts: {payment['amount']} RUB from "
+                                             f"{payment['username']}")
+                            await self.donation_alerts_api.queue_alert(
+                                payment["amount"],
+                                payment["username"],
+                                payment.get("comment", "")
+                            )
 
                     # If we have new payments, send them to be added to the UI
-                    # BUT DON'T SEND ALL PAYMENTS - this would cause the list to be replaced
+                    # DON'T SEND ALL PAYMENTS - this would cause the list to be replaced
                     if new_payments and self.on_payments_updated_callback:
-                        print(f"Sending {len(new_payments)} new payments to be added to the UI")
+                        self.logger.info(f"Sending {len(new_payments)} new payments to be added to the UI")
                         self.on_payments_updated_callback(new_payments)
 
-                    # Обновляем время последней проверки
+                    # Update the last check time
                     self.last_check_time = current_check_time
-                    print(f"Updated last_check_time to {self.last_check_time}")
+                    self.logger.info(f"Updated last_check_time to {self.last_check_time}")
 
                 except Exception as e:
                     error_msg = f"Error monitoring payments: {str(e)}"
-                    print(f"ERROR: {error_msg}")
+                    self.logger.error(error_msg)
                     if self.on_error_callback:
                         self.on_error_callback(error_msg)
-                    # Добавляем небольшую паузу при ошибке, чтобы не забивать логи
+                    # Add a small pause on error to avoid spamming logs
                     await asyncio.sleep(5)
-                    continue  # Продолжаем работу после ошибки
+                    continue  # Continue after error
 
                 # Wait for next check with interrupt handling
-                print(f"Waiting {self.check_interval} seconds until next check")
+                self.logger.info(f"Waiting {self.check_interval} seconds until next check")
 
                 # Use smaller sleep intervals to check self.running more frequently
                 remaining = self.check_interval
@@ -291,19 +265,52 @@ class PaymentMonitor:
                     remaining -= sleep_interval
 
                 if self.running:
-                    print("Woke up, checking again...")
+                    self.logger.info("Woke up, checking again...")
                 else:
-                    print("Monitoring stopped during sleep")
+                    self.logger.info("Monitoring stopped during sleep")
                     break
 
         except asyncio.CancelledError:
-            print("Monitoring task was cancelled")
+            self.logger.info("Monitoring task was cancelled")
             # Correctly handle cancellation
             raise
         except Exception as e:
-            print(f"Unexpected error in monitor loop: {str(e)}")
+            self.logger.error(f"Unexpected error in monitor loop: {str(e)}")
             if self.on_error_callback:
                 self.on_error_callback(f"Monitoring stopped due to error: {str(e)}")
             raise
         finally:
-            print("Monitoring loop ended")
+            self.logger.info("Monitoring loop ended")
+
+    def _filter_payment_content(self, payment: Dict[str, Any], banwords: List[str], filter_urls: bool) -> Dict[
+        str, Any]:
+        """Filter payment content using banwords and URL filtering.
+
+        Args:
+            payment: Payment data
+            banwords: List of banned words
+            filter_urls: Whether to filter URLs
+
+        Returns:
+            Filtered payment data
+        """
+        # Make a copy to avoid modifying the original
+        filtered_payment = payment.copy()
+
+        # Filter comment if present
+        if comment := filtered_payment.get("comment", ""):
+            # First filter banned words
+            filtered_comment = filter_text_with_banwords(comment, banwords)
+
+            # Then filter URLs if enabled
+            if filter_urls:
+                filtered_comment = filter_urls_from_text(filtered_comment)
+
+            filtered_payment["comment"] = filtered_comment
+
+        # Filter username
+        if username := filtered_payment.get("username", ""):
+            filtered_username = filter_text_with_banwords(username, banwords)
+            filtered_payment["username"] = filtered_username
+
+        return filtered_payment
