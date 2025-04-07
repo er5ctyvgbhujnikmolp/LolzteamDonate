@@ -5,7 +5,7 @@ Handles authentication and sending custom alerts to DonationAlerts.
 
 import asyncio
 from enum import Enum
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from urllib.parse import urlencode
 
 import aiohttp
@@ -28,9 +28,9 @@ class DonationAlertsAPI:
 
     def __init__(
             self,
-            client_id: str = None,
-            redirect_uri: str = None,
-            scopes: List[Scopes] = None
+            client_id: Optional[str] = None,
+            redirect_uri: Optional[str] = None,
+            scopes: Optional[List[Scopes]] = None
     ):
         """Initialize DonationAlerts API client.
 
@@ -44,7 +44,7 @@ class DonationAlertsAPI:
         self.scopes = scopes or [Scopes.USER_SHOW, Scopes.CUSTOM_ALERT_STORE]
         self.session = None
         self._queue: asyncio.Queue[api_types.AlertInfo] = asyncio.Queue()
-        self._queue_task = None
+        self._queue_task: Optional[asyncio.Task[None]] = None
 
     def login(self) -> str:
         """Get the OAuth authorization URL.
