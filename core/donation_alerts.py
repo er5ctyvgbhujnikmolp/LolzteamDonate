@@ -12,6 +12,7 @@ import aiohttp
 import requests
 
 from . import types as api_types
+from . import errors
 
 
 class Scopes(Enum):
@@ -129,7 +130,7 @@ class DonationAlertsAPI:
                         error_text = await response.text()
                         raise Exception(f"Error sending alert: {response.status} - {error_text}")
         except Exception as e:
-            raise Exception(f"Failed to send alert: {str(e)}") from e
+            raise errors.SendAlertException(f"Failed to send alert: {str(e)}") from e
 
     async def start_alert_processor(self, access_token: str) -> None:
         """Start the alert processing queue.
