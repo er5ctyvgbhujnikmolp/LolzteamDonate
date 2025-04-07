@@ -86,11 +86,11 @@ class LolzteamAPI:
             return response.json()
         except requests.RequestException as e:
             print(f"Request exception in get_user_info: {str(e)}")
-            raise Exception(f"Network error getting user info: {str(e)}")
+            raise Exception(f"Network error getting user info: {str(e)}") from e
         except json.JSONDecodeError as e:
             print(f"JSON decode error in get_user_info: {str(e)}")
             print(f"Response text: {response.text}")
-            raise Exception(f"Invalid JSON response from server: {str(e)}")
+            raise Exception(f"Invalid JSON response from server: {str(e)}") from e
         except Exception as e:
             print(f"Unexpected error in get_user_info: {str(e)}")
             raise
@@ -178,14 +178,14 @@ class LolzteamAPI:
 
         except requests.RequestException as e:
             print(f"Request exception in get_payment_history: {str(e)}")
-            raise Exception(f"Network error getting payment history: {str(e)}")
+            raise Exception(f"Network error getting payment history: {str(e)}") from e
         except json.JSONDecodeError as e:
             print(f"JSON decode error in get_payment_history: {str(e)}")
             print(f"Response text: {response.text}")
-            raise Exception(f"Invalid JSON response from server: {str(e)}")
+            raise Exception(f"Invalid JSON response from server: {str(e)}") from e
         except Exception as e:
             print(f"Unexpected error in get_payment_history: {str(e)}")
-            raise Exception(f"Unexpected error in get_payment_history: {str(e)}")
+            raise Exception(f"Unexpected error in get_payment_history: {str(e)}") from e
 
     async def verify_token(self, access_token: str) -> bool:
         """Verify if the access token is valid.
