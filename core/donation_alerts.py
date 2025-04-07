@@ -11,6 +11,8 @@ from urllib.parse import urlencode
 import aiohttp
 import requests
 
+from . import types as api_types
+
 
 class Scopes(Enum):
     """DonationAlerts API scopes."""
@@ -41,7 +43,7 @@ class DonationAlertsAPI:
         self.redirect_uri = redirect_uri
         self.scopes = scopes or [Scopes.USER_SHOW, Scopes.CUSTOM_ALERT_STORE]
         self.session = None
-        self._queue = asyncio.Queue()
+        self._queue: asyncio.Queue[api_types.AlertInfo] = asyncio.Queue()
         self._queue_task = None
 
     def login(self) -> str:
@@ -161,8 +163,8 @@ class DonationAlertsAPI:
                 alert = await self._queue.get()
                 await self.send_custom_alert(
                     access_token,
-                    f"{alert['username']} — {alert['amount']} RUB",
-                    alert['message']
+                    f"{alert.username} — {alert.amount} RUB",
+                    alert.message
                 )
             except asyncio.CancelledError:
                 break
@@ -179,8 +181,10 @@ class DonationAlertsAPI:
             username: Username of donor
             message: Donation message
         """
-        await self._queue.put({
-            "amount": amount,
-            "username": username,
-            "message": message
-        })
+        await self._queue.put(
+            api_types.AlertInfo(
+                amount=amount,
+                username=username,
+                message=message
+            )
+        )
