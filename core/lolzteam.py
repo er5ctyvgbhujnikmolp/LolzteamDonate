@@ -18,7 +18,7 @@ class LolzteamAPI:
     MARKET_URL = "https://prod-api.lzt.market"
     FORUM_URL = "https://prod-api.lolz.live"
 
-    def __init__(self, client_id: str = None, redirect_uri: str = None, access_token: str = None):
+    def __init__(self, client_id: str, redirect_uri: str, access_token: str):
         """Initialize LOLZTEAM API client.
 
         Args:
