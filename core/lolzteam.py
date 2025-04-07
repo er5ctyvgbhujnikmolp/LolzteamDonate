@@ -10,6 +10,8 @@ from typing import Dict, Any, List
 import aiohttp
 import requests
 
+from . import errors
+
 
 class LolzteamAPI:
     """LOLZTEAM API client."""
@@ -18,7 +20,7 @@ class LolzteamAPI:
     MARKET_URL = "https://prod-api.lzt.market"
     FORUM_URL = "https://prod-api.lolz.live"
 
-    def __init__(self, client_id: str = None, redirect_uri: str = None, access_token: str = None):
+    def __init__(self, client_id: str, redirect_uri: str, access_token: str):
         """Initialize LOLZTEAM API client.
 
         Args:
@@ -65,7 +67,7 @@ class LolzteamAPI:
             Exception: If the request fails
         """
         if not self.access_token:
-            raise Exception("Access token not set")
+            raise errors.TokenNotProvidedException("Access token not set")
 
         headers = {
             "Authorization": f"Bearer {self.access_token}",
@@ -81,19 +83,23 @@ class LolzteamAPI:
         try:
             response = session.get(f"{self.FORUM_URL}/users/me")
             if response.status_code != 200:
-                raise Exception(f"Failed to get user info: {response.status_code} - {response.text}")
+                raise errors.BadApiRequestException(f"Failed to get user info: {response.status_code} - {response.text}")
 
             return response.json()
         except requests.RequestException as e:
             print(f"Request exception in get_user_info: {str(e)}")
-            raise Exception(f"Network error getting user info: {str(e)}")
+            raise requests.RequestException(f"Network error getting user info: {str(e)}") from e
         except json.JSONDecodeError as e:
             print(f"JSON decode error in get_user_info: {str(e)}")
             print(f"Response text: {response.text}")
-            raise Exception(f"Invalid JSON response from server: {str(e)}")
+            raise json.JSONDecodeError(
+                msg=f"Invalid JSON response from server: {str(e)}", 
+                doc=e.doc, 
+                pos=e.pos
+            )
         except Exception as e:
             print(f"Unexpected error in get_user_info: {str(e)}")
-            raise
+            raise errors.BadApiRequestException(f"Unexpected error in get_user_info: {str(e)}") from e
 
     def get_payment_history(self, min_amount: int = 1) -> List[Dict[str, Any]]:
         """Get payment history.
@@ -109,7 +115,7 @@ class LolzteamAPI:
             Exception: If the request fails
         """
         if not self.access_token:
-            raise Exception("Access token not set")
+            raise errors.TokenNotProvidedException("Access token not set")
 
         headers = {
             "Authorization": f"Bearer {self.access_token}",
@@ -136,7 +142,7 @@ class LolzteamAPI:
             )
 
             if response.status_code != 200:
-                raise Exception(f"Failed to get payment history: {response.status_code} - {response.text}")
+                raise errors.BadApiRequestException(f"Failed to get payment history: {response.status_code} - {response.text}")
 
             data = response.json()
 
@@ -178,14 +184,14 @@ class LolzteamAPI:
 
         except requests.RequestException as e:
             print(f"Request exception in get_payment_history: {str(e)}")
-            raise Exception(f"Network error getting payment history: {str(e)}")
+            raise requests.RequestException(f"Network error getting payment history: {str(e)}") from e
         except json.JSONDecodeError as e:
             print(f"JSON decode error in get_payment_history: {str(e)}")
             print(f"Response text: {response.text}")
-            raise Exception(f"Invalid JSON response from server: {str(e)}")
+            raise json.JSONDecodeError(f"Invalid JSON response from server: {str(e)}", doc=e.doc, pos=e.pos) from e
         except Exception as e:
             print(f"Unexpected error in get_payment_history: {str(e)}")
-            raise Exception(f"Unexpected error in get_payment_history: {str(e)}")
+            raise errors.BadApiRequestException(f"Unexpected error in get_payment_history: {str(e)}") from e
 
     async def verify_token(self, access_token: str) -> bool:
         """Verify if the access token is valid.

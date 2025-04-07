@@ -11,6 +11,8 @@ from typing import Dict, Any, List, Optional, Set, Callable
 from core.donation_alerts import DonationAlertsAPI
 from core.lolzteam import LolzteamAPI
 
+from . import errors
+
 
 class PaymentMonitor:
     """Monitors LOLZTEAM for new payments and sends alerts to DonationAlerts."""
@@ -146,7 +148,7 @@ class PaymentMonitor:
             if self.on_error_callback:
                 self.on_error_callback(error_msg)
             self.running = False
-            raise  # Propagate the exception
+            raise errors.InitializeException(f"Failed to initialize payment monitor: {str(e)}") from e # Propagate the exception
 
     async def stop(self):
         """Stop monitoring for payments."""
@@ -296,14 +298,14 @@ class PaymentMonitor:
                     print("Monitoring stopped during sleep")
                     break
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
             print("Monitoring task was cancelled")
             # Correctly handle cancellation
-            raise
+            raise errors.TaskCanceled("Monitoring task was cancelled") from e
         except Exception as e:
             print(f"Unexpected error in monitor loop: {str(e)}")
             if self.on_error_callback:
                 self.on_error_callback(f"Monitoring stopped due to error: {str(e)}")
-            raise
+            raise errors.BasePMException(f"Unexpected error in monitor loop: {str(e)}") from e
         finally:
             print("Monitoring loop ended")

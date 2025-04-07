@@ -5,11 +5,14 @@ Handles authentication and sending custom alerts to DonationAlerts.
 
 import asyncio
 from enum import Enum
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from urllib.parse import urlencode
 
 import aiohttp
 import requests
+
+from . import types as api_types
+from . import errors
 
 
 class Scopes(Enum):
@@ -26,9 +29,9 @@ class DonationAlertsAPI:
 
     def __init__(
             self,
-            client_id: str = None,
-            redirect_uri: str = None,
-            scopes: List[Scopes] = None
+            client_id: Optional[str] = None,
+            redirect_uri: Optional[str] = None,
+            scopes: Optional[List[Scopes]] = None
     ):
         """Initialize DonationAlerts API client.
 
@@ -41,8 +44,8 @@ class DonationAlertsAPI:
         self.redirect_uri = redirect_uri
         self.scopes = scopes or [Scopes.USER_SHOW, Scopes.CUSTOM_ALERT_STORE]
         self.session = None
-        self._queue = asyncio.Queue()
-        self._queue_task = None
+        self._queue: asyncio.Queue[api_types.AlertInfo] = asyncio.Queue()
+        self._queue_task: Optional[asyncio.Task[None]] = None
 
     def login(self) -> str:
         """Get the OAuth authorization URL.
@@ -127,7 +130,7 @@ class DonationAlertsAPI:
                         error_text = await response.text()
                         raise Exception(f"Error sending alert: {response.status} - {error_text}")
         except Exception as e:
-            raise Exception(f"Failed to send alert: {str(e)}")
+            raise errors.SendAlertException(f"Failed to send alert: {str(e)}") from e
 
     async def start_alert_processor(self, access_token: str) -> None:
         """Start the alert processing queue.
@@ -161,8 +164,8 @@ class DonationAlertsAPI:
                 alert = await self._queue.get()
                 await self.send_custom_alert(
                     access_token,
-                    f"{alert['username']} — {alert['amount']} RUB",
-                    alert['message']
+                    f"{alert.username} — {alert.amount} RUB",
+                    alert.message
                 )
             except asyncio.CancelledError:
                 break
@@ -179,8 +182,10 @@ class DonationAlertsAPI:
             username: Username of donor
             message: Donation message
         """
-        await self._queue.put({
-            "amount": amount,
-            "username": username,
-            "message": message
-        })
+        await self._queue.put(
+            api_types.AlertInfo(
+                amount=amount,
+                username=username,
+                message=message
+            )
+        )
