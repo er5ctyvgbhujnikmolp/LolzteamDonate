@@ -42,7 +42,7 @@ class LolzteamAPI:
         params = {
             "client_id": self.client_id,
             "response_type": "token",
-            "scope": "payment basic"
+            "scope": "payment basic read"
         }
 
         # Construct the URL manually to avoid URL encoding issues
