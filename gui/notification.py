@@ -164,7 +164,8 @@ class NotificationManager:
             message: Error message
             title: Error title
         """
-        self.show_notification(title, message, NotificationType.ERROR)
+        print(message)
+        # self.show_notification(title, message, NotificationType.ERROR)
 
     def show_success(self, message, title="Success"):
         """Show a success notification.
@@ -173,7 +174,8 @@ class NotificationManager:
             message: Success message
             title: Success title
         """
-        self.show_notification(title, message, NotificationType.SUCCESS)
+        print(message)
+        # self.show_notification(title, message, NotificationType.SUCCESS)
 
     def show_warning(self, message, title="Warning"):
         """Show a warning notification.
@@ -182,7 +184,8 @@ class NotificationManager:
             message: Warning message
             title: Warning title
         """
-        self.show_notification(title, message, NotificationType.WARNING)
+        print(message)
+        # self.show_notification(title, message, NotificationType.WARNING)
 
     def show_info(self, message, title="Information"):
         """Show an info notification.
@@ -191,7 +194,8 @@ class NotificationManager:
             message: Info message
             title: Info title
         """
-        self.show_notification(title, message, NotificationType.INFO)
+        print(message)
+        # self.show_notification(title, message, NotificationType.INFO)
 
     def _notification_closed(self, notification):
         """Handle notification closed event.
