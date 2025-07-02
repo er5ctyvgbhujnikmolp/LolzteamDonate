@@ -5,6 +5,8 @@ Handles authentication and sending custom alerts to DonationAlerts.
 
 import asyncio
 from enum import Enum
+import json
+import ssl
 from typing import Dict, Any, List, Optional
 from urllib.parse import urlencode
 
@@ -70,11 +72,40 @@ class DonationAlertsAPI:
         Returns:
             User information
         """
-        headers = {"Authorization": f"Bearer {access_token}"}
-        response = requests.get(f"{self.API_URL}/user/oauth", headers=headers)
-        response.raise_for_status()
+        if not access_token:
+            raise errors.TokenNotProvidedException("Access token not set")
 
-        return response.json()
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+        }
+
+        # Use session to control connection parameters
+        session = requests.Session()
+        session.headers.update(headers)
+
+        # Disable HTTP/2 to avoid protocol errors
+        session.mount('https://', requests.adapters.HTTPAdapter(max_retries=3))
+
+        try:
+            response = session.get(f"{self.API_URL}/user/oauth")
+            if response.status_code != 200:
+                raise errors.BadApiRequestException(f"Failed to get user info: {response.status_code} - {response.text}")
+
+            return response.json()
+        except requests.RequestException as e:
+            print(f"Request exception in get_user_info: {str(e)}")
+            raise requests.RequestException(f"Network error getting user info: {str(e)}") from e
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error in get_user_info: {str(e)}")
+            print(f"Response text: {response.text}")
+            raise json.JSONDecodeError(
+                msg=f"Invalid JSON response from server: {str(e)}", 
+                doc=e.doc, 
+                pos=e.pos
+            )
+        except Exception as e:
+            print(f"Unexpected error in get_user_info: {str(e)}")
+            raise errors.BadApiRequestException(f"Unexpected error in get_user_info: {str(e)}") from e
 
     async def verify_token(self, access_token: str) -> bool:
         """Verify if the access token is valid.
@@ -117,12 +148,15 @@ class DonationAlertsAPI:
         if message:
             data["message"] = message
 
+        ssl_context = ssl.create_default_context()
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                         f"{self.API_URL}/custom_alert",
                         headers=headers,
-                        data=data
+                        data=data,
+                        ssl=ssl_context
                 ) as response:
                     if response.status == 201:
                         return await response.json()
@@ -130,6 +164,7 @@ class DonationAlertsAPI:
                         error_text = await response.text()
                         raise Exception(f"Error sending alert: {response.status} - {error_text}")
         except Exception as e:
+            print(f"[DEBUG] Alert send error: {type(e).__name__}: {e}")
             raise errors.SendAlertException(f"Failed to send alert: {str(e)}") from e
 
     async def start_alert_processor(self, access_token: str) -> None:
@@ -164,8 +199,8 @@ class DonationAlertsAPI:
                 alert = await self._queue.get()
                 await self.send_custom_alert(
                     access_token,
-                    f"{alert.username} — {alert.amount} RUB",
-                    alert.message
+                    f"{alert['username']} — {alert['amount']} RUB",
+                    alert['message']
                 )
             except asyncio.CancelledError:
                 break
@@ -182,10 +217,8 @@ class DonationAlertsAPI:
             username: Username of donor
             message: Donation message
         """
-        await self._queue.put(
-            api_types.AlertInfo(
-                amount=amount,
-                username=username,
-                message=message
-            )
-        )
+        await self._queue.put({
+            "amount": amount,
+            "username": username,
+            "message": message
+        })
