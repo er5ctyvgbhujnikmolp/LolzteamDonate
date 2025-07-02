@@ -490,7 +490,9 @@ class MainWindow(QMainWindow):
 
             try:
                 # Get user info
+                print(token)
                 user_info = self.donation_alerts_api.user(token)
+                print(user_info)
                 self._update_donation_alerts_profile(user_info)
             except Exception as e:
                 self.notification_manager.show_error(
