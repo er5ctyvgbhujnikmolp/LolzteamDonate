@@ -5,7 +5,7 @@ Handles authentication and payment monitoring for LOLZTEAM.
 
 import json
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 import aiohttp
 import requests
@@ -20,7 +20,12 @@ class LolzteamAPI:
     MARKET_URL = "https://prod-api.lzt.market"
     FORUM_URL = "https://prod-api.lolz.live"
 
-    def __init__(self, client_id: str, redirect_uri: str, access_token: str):
+    def __init__(
+            self, 
+            client_id: Optional[str] = None,
+            redirect_uri: Optional[str] = None,
+            access_token: Optional[str] = None
+        ):
         """Initialize LOLZTEAM API client.
 
         Args:
